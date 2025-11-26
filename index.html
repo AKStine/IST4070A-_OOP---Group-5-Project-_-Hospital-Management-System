@@ -180,6 +180,9 @@
         <button onclick="showSection('reception')" class="nav-link w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">
           Reception
         </button>
+        <button onclick="showSection('logs')" class="nav-link w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">
+          Activity Logs
+        </button>
 
         <h3 class="text-[0.7rem] font-semibold uppercase text-slate-500 mt-4 mb-1">
           Backend Code (Spring Boot)
@@ -188,6 +191,69 @@
           View Java Code
         </button>
       </nav>
+
+
+      <!-- Near showSection helpers-->
+      function createLogsSection() {
+  const latestLogs = [...MOCK_LOGS]
+    .slice(-100)                   // show last 100 actions
+    .reverse();                    // newest first
+
+  const rows = latestLogs
+    .map(log => {
+      const date = new Date(log.timestamp);
+      return `
+        <tr class="border-b last:border-0 hover:bg-slate-50">
+          <td class="px-3 py-2 text-[0.7rem] text-slate-500 whitespace-nowrap">
+            ${date.toLocaleString()}
+          </td>
+          <td class="px-3 py-2 text-[0.7rem] text-slate-700">${log.entity}</td>
+          <td class="px-3 py-2 text-[0.7rem] text-slate-700">${log.action}</td>
+          <td class="px-3 py-2 text-[0.7rem] text-slate-600">${sanitize(log.details || '')}</td>
+          <td class="px-3 py-2 text-[0.7rem] text-slate-600">${log.actor || 'System'}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Activity Logs</h2>
+          <p class="text-xs text-slate-500">
+            Last 18 months of activity: patient registrations, appointments, billing, and pharmacy updates.
+          </p>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-100 max-h-[420px]">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Timestamp</th>
+              <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Entity</th>
+              <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Action</th>
+              <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Details</th>
+              <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Actor</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-slate-100">
+            ${
+              rows ||
+              `<tr><td colspan="5" class="px-3 py-4 text-center text-[0.75rem] text-slate-500">
+                No activity logs have been recorded yet.
+              </td></tr>`
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-3 text-[0.7rem] text-slate-500">
+        Possible actions: drill into specific modules using the sidebar, or export these logs via a backend endpoint in the future.
+      </p>
+    </section>
+  `;
+}
+
 
       <div class="pt-4 border-t border-slate-700 mt-4">
         <p class="text-xs text-slate-400 mb-2">Logged in as:</p>
@@ -328,32 +394,42 @@
     // ==================================
     const API_BASE = 'http://localhost:8080/api'; // for reference only
 
+
+
     // DATA ENCAPSULATION:
-    // All runtime data is centralized in MOCK_DATA and only mutated via helper functions.
-    const MOCK_DATA = {
-      patients: [
-        { id: 1, name: 'Alice Johnson', age: 35, condition: 'Fever', room: '101A' },
-        { id: 2, name: 'Bob Williams', age: 62, condition: 'Fracture', room: '205B' }
-      ],
-      staff: [
-        { id: 101, name: 'Dr. Evelyn Reed', role: 'Doctor', phone: '555-1001', department: 'Cardiology' },
-        { id: 102, name: 'Nurse Michael Lee', role: 'Nurse', phone: '555-1002', department: 'ICU' },
-        { id: 103, name: 'Dr. Alex Chen', role: 'Doctor', phone: '555-1003', department: 'Orthopedics' },
-        { id: 104, name: 'Nurse Sarah Kim', role: 'Nurse', phone: '555-1004', department: 'Pediatrics' }
-      ],
-      pharmacy: [
-        { id: 1001, drugName: 'Ibuprofen (200mg)', stock: 5000, cost: 0.50, supplier: 'PharmaCorp' },
-        { id: 1002, drugName: 'Amoxicillin (500mg)', stock: 850, cost: 2.25, supplier: 'GlobalMeds' }
-      ],
-      billing: [
-        { id: 301, patientId: 1, service: 'Consultation Fee', amount: 150.0, status: 'UNPAID' },
-        { id: 302, patientId: 2, service: 'Surgery Charge', amount: 5500.0, status: 'PAID' }
-      ],
-      reception: [
-        { id: 401, patientName: 'Alice Johnson', doctor: 'Dr. Reed', time: '2025-11-25 10:00', status: 'Scheduled' },
-        { id: 402, patientName: 'Charlie Brown', doctor: 'Dr. Chen', time: '2025-11-25 11:30', status: 'Checked-in' }
-      ]
-    };
+// All runtime data is centralized in MOCK_DATA and only mutated via helper functions.
+const MOCK_DATA = {
+  patients: [
+    // Seed examples (these will be expanded to 1200+ in seedMockDataWithHistory)
+    { id: 1, name: 'Alice Johnson', age: 35, condition: 'Fever', room: '101A' },
+    { id: 2, name: 'Bob Williams', age: 62, condition: 'Fracture', room: '205B' }
+  ],
+  staff: [
+    { id: 101, name: 'Dr. Evelyn Reed', role: 'Doctor', phone: '555-1001', department: 'Cardiology' },
+    { id: 102, name: 'Nurse Michael Lee', role: 'Nurse', phone: '555-1002', department: 'ICU' },
+    { id: 103, name: 'Dr. Alex Chen', role: 'Doctor', phone: '555-1003', department: 'Orthopedics' },
+    { id: 104, name: 'Nurse Sarah Kim', role: 'Nurse', phone: '555-1004', department: 'Pediatrics' }
+  ],
+  pharmacy: [
+    // Seed examples (expanded to 500+ items)
+    { id: 1001, drugName: 'Ibuprofen (200mg)', stock: 5000, cost: 0.50, supplier: 'PharmaCorp' },
+    { id: 1002, drugName: 'Amoxicillin (500mg)', stock: 850, cost: 2.25, supplier: 'GlobalMeds' }
+  ],
+  billing: [
+    // Seed examples (expanded with many entries across 18 months)
+    { id: 301, patientId: 1, service: 'Consultation Fee', amount: 150.0, status: 'UNPAID' },
+    { id: 302, patientId: 2, service: 'Surgery Charge', amount: 5500.0, status: 'PAID' }
+  ],
+  reception: [
+    // Seed examples (expanded to simulate appointment history)
+    { id: 401, patientName: 'Alice Johnson', doctor: 'Dr. Reed', time: '2025-11-25 10:00', status: 'Scheduled' },
+    { id: 402, patientName: 'Charlie Brown', doctor: 'Dr. Chen', time: '2025-11-25 11:30', status: 'Checked-in' }
+  ]
+};
+
+// 18-month history configuration + activity logs
+const HISTORY_MONTHS = 18;
+const MOCK_LOGS = []; // each: { id, timestamp, entity, action, actor, details, amount? }
 
     // ==================================
     // UTILITIES (Abstraction)
@@ -403,68 +479,155 @@
     // ==================================
 
     function computeStats() {
-      const totalPatients = MOCK_DATA.patients.length;
-      const totalStaff = MOCK_DATA.staff.length;
-      const totalDoctors = MOCK_DATA.staff.filter(s => s.role === 'Doctor').length;
-      const totalNurses = MOCK_DATA.staff.filter(s => s.role === 'Nurse').length;
-      const totalPharmacyItems = MOCK_DATA.pharmacy.length;
-      const totalStock = MOCK_DATA.pharmacy.reduce((sum, d) => sum + (d.stock || 0), 0);
-      const unpaidBills = MOCK_DATA.billing.filter(b => b.status === 'UNPAID');
-      const unpaidAmount = unpaidBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-      const upcomingAppointments = MOCK_DATA.reception.filter(r => r.status === 'Scheduled' || r.status === 'Checked-in');
+  const totalPatients = MOCK_DATA.patients.length;
+  const totalStaff = MOCK_DATA.staff.length;
+  const totalDoctors = MOCK_DATA.staff.filter(s => s.role === 'Doctor').length;
+  const totalNurses = MOCK_DATA.staff.filter(s => s.role === 'Nurse').length;
+  const totalPharmacyItems = MOCK_DATA.pharmacy.length;
+  const totalStock = MOCK_DATA.pharmacy.reduce((sum, d) => sum + (d.stock || 0), 0);
+  const unpaidBills = MOCK_DATA.billing.filter(b => b.status === 'UNPAID');
+  const unpaidAmount = unpaidBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const upcomingAppointments = MOCK_DATA.reception.filter(r =>
+    r.status === 'Scheduled' || r.status === 'Checked-in'
+  );
 
-      return {
-        totalPatients,
-        totalStaff,
-        totalDoctors,
-        totalNurses,
-        totalPharmacyItems,
-        totalStock,
-        unpaidCount: unpaidBills.length,
-        unpaidAmount,
-        upcomingCount: upcomingAppointments.length
-      };
-    }
+  return {
+    totalPatients,
+    totalStaff,
+    totalDoctors,
+    totalNurses,
+    totalPharmacyItems,
+    totalStock,
+    unpaidCount: unpaidBills.length,
+    unpaidAmount,
+    upcomingCount: upcomingAppointments.length
+  };
+}
 
-    function renderOverview() {
-      const container = document.getElementById('overview-container');
-      const stats = computeStats();
+// Build monthly buckets (last N months) from logs
+function buildMonthlySeries(months) {
+  const labels = [];
+  const now = new Date();
 
-      container.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Total Patients</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalPatients}</p>
-            <p class="mt-1 text-[0.75rem] text-slate-500">Currently registered in the system.</p>
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = monthKey(d);
+    const label =
+      d.toLocaleString('default', { month: 'short' }) +
+      ' ' +
+      String(d.getFullYear()).slice(2);
+    labels.push({ key, label });
+  }
+
+  const patientSeries = labels.map(({ key }) =>
+    MOCK_LOGS.filter(
+      l => l.entity === 'patient' && l.action === 'CREATE' && monthKey(new Date(l.timestamp)) === key
+    ).length
+  );
+
+  const appointmentSeries = labels.map(({ key }) =>
+    MOCK_LOGS.filter(
+      l => l.entity === 'reception' && l.action === 'CREATE' && monthKey(new Date(l.timestamp)) === key
+    ).length
+  );
+
+  const revenueSeries = labels.map(({ key }) =>
+    MOCK_LOGS.filter(
+      l =>
+        l.entity === 'billing' &&
+        l.action === 'CREATE' &&
+        monthKey(new Date(l.timestamp)) === key
+    ).reduce((sum, l) => sum + (l.amount || 0), 0)
+  );
+
+  return { labels, patientSeries, appointmentSeries, revenueSeries };
+}
+
+function createBarChart(labels, data, unit) {
+  const max = Math.max(...data, 1);
+  const bars = data
+    .map((value, idx) => {
+      const h = Math.round((value / max) * 100); // height in %
+      const label = labels[idx].label;
+      return `
+        <div class="flex-1 flex flex-col items-center">
+          <div class="w-3 rounded-t-full bg-sky-100 flex items-end">
+            <div class="w-full rounded-t-full bg-sky-500" style="height:${h}%;"></div>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Staff</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalStaff}</p>
-            <p class="mt-1 text-[0.75rem] text-slate-500">
-              Doctors: ${stats.totalDoctors} &bull; Nurses: ${stats.totalNurses}
-            </p>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Pharmacy Stock</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalStock}</p>
-            <p class="mt-1 text-[0.75rem] text-slate-500">
-              Across ${stats.totalPharmacyItems} medicine items.
-            </p>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Unpaid Bills</p>
-            <p class="text-2xl font-bold text-rose-600">${stats.unpaidCount}</p>
-            <p class="mt-1 text-[0.75rem] text-slate-500">
-              Outstanding: KES ${stats.unpaidAmount.toFixed(2)}
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center justify-between text-xs text-slate-500 mt-1 mb-4">
-          <span>Upcoming appointments: <span class="font-semibold text-slate-800">${stats.upcomingCount}</span></span>
-          <span class="hidden sm:inline">Tip: Use the sidebar to dive deeper into each module.</span>
+          <span class="mt-1 text-[0.6rem] text-slate-500">${label}</span>
+          <span class="mt-0.5 text-[0.6rem] text-slate-700 font-medium">${unit === 'KES' ? 'KES ' : ''}${unit === 'KES' ? value.toFixed(0) : value}</span>
         </div>
       `;
-    }
+    })
+    .join('');
+
+  return `
+    <div class="flex items-end gap-2 h-28">${bars}</div>
+  `;
+}
+
+function renderOverview() {
+  const container = document.getElementById('overview-container');
+  const stats = computeStats();
+  const { labels, patientSeries, appointmentSeries, revenueSeries } = buildMonthlySeries(12);
+
+  const cardsHtml = `
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500 mb-1">Total Patients</p>
+        <p class="text-2xl font-bold text-slate-900">${stats.totalPatients}</p>
+        <p class="mt-1 text-[0.7rem] text-slate-500">Based on 18 months of registrations.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500 mb-1">Staff</p>
+        <p class="text-2xl font-bold text-slate-900">${stats.totalStaff}</p>
+        <p class="mt-1 text-[0.7rem] text-slate-500">
+          Doctors: ${stats.totalDoctors} &bull; Nurses: ${stats.totalNurses}
+        </p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500 mb-1">Pharmacy Items</p>
+        <p class="text-2xl font-bold text-slate-900">${stats.totalPharmacyItems}</p>
+        <p class="mt-1 text-[0.7rem] text-slate-500">
+          Total stock units: ${stats.totalStock.toLocaleString('en-KE')}
+        </p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500 mb-1">Unpaid Bills</p>
+        <p class="text-2xl font-bold text-rose-600">${stats.unpaidCount}</p>
+        <p class="mt-1 text-[0.7rem] text-slate-500">
+          Outstanding: KES ${stats.unpaidAmount.toFixed(0).toLocaleString('en-KE')}
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center justify-between text-xs text-slate-500 mb-4">
+      <span>Upcoming appointments: <span class="font-semibold text-slate-800">${stats.upcomingCount}</span></span>
+      <span class="hidden sm:inline">Data spans the last 18 months of hospital activity.</span>
+    </div>
+  `;
+
+  const kpiHtml = `
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2">
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-800 mb-1">Monthly Patient Registrations (last 12 months)</h3>
+        <p class="text-[0.7rem] text-slate-500 mb-2">Helps you see intake trends at a glance.</p>
+        ${createBarChart(labels, patientSeries, 'count')}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-800 mb-1">Appointments Trend (last 12 months)</h3>
+        <p class="text-[0.7rem] text-slate-500 mb-2">Total appointments created per month.</p>
+        ${createBarChart(labels, appointmentSeries, 'count')}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-800 mb-1">Monthly Revenue (last 12 months)</h3>
+        <p class="text-[0.7rem] text-slate-500 mb-2">Sum of billed amounts (PAID + UNPAID).</p>
+        ${createBarChart(labels, revenueSeries, 'KES')}
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = cardsHtml + kpiHtml;
+}
 
     // ==================================
     // CRUD SIMULATION (Abstraction)
