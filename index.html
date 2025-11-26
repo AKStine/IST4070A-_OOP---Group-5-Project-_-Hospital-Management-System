@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Management System Dashboard & Backend</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        /* Style for the code blocks */
+        .code-block {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 0.5rem;
+        }
+        /* Loading spinner */
+        .loader {
+            border-top-color: #3b82f6;
+            border-right-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex">
+
+    <!-- Mobile Menu Button -->
+    <button id="menu-toggle" class="lg:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-600 text-white rounded-full shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
+
+    <!-- Sidebar / Navigation -->
+    <div id="sidebar" class="sidebar fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:static lg:w-64 bg-gray-800 text-white p-6 z-40 flex flex-col shadow-xl">
+        <div class="flex items-center mb-10">
+            <span class="text-xl font-semibold text-indigo-400">HMS Full Stack</span>
+        </div>
+        <nav class="flex-grow space-y-2">
+            <h3 class="text-sm font-semibold uppercase text-gray-400 mb-2">Frontend Management</h3>
+            <button onclick="showSection('patients')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 bg-gray-900 text-indigo-400">Patients</button>
+            <button onclick="showSection('staff')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700">Staff (All)</button>
+            <button onclick="showSection('doctor')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 pl-8 text-sm">Doctor Role View</button>
+            <button onclick="showSection('nurse')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 pl-8 text-sm">Nurse Role View</button>
+            <button onclick="showSection('pharmacy')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700">Pharmacy</button>
+            <button onclick="showSection('billing')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700">Billing</button>
+            <button onclick="showSection('reception')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700">Reception</button>
+
+            <h3 class="text-sm font-semibold uppercase text-gray-400 pt-6 mb-2 border-t border-gray-700">Backend Code (Spring Boot)</h3>
+            <button onclick="showSection('backend')" class="nav-link w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700">View Java Code</button>
+        </nav>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow p-4 sm:p-8 lg:p-10">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Hospital Management System</h1>
+        
+        <!-- Status Message Container -->
+        <div id="status-message" class="hidden p-4 mb-6 text-sm rounded-lg" role="alert"></div>
+
+        <div id="content-container" class="space-y-10">
+            <!-- Dynamic Content Sections will be loaded here -->
+        </div>
+
+    </main>
+
+    <!-- Modal for Edit/Delete Confirmation (using a simple, custom div) -->
+    <div id="action-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm">
+            <h3 id="modal-title" class="text-xl font-semibold text-gray-800 mb-4">Confirm Action</h3>
+            <p id="modal-message" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-cancel" class="px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-100 transition duration-150">Cancel</button>
+                <button id="modal-confirm" class="px-4 py-2 text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700 transition duration-150">Confirm</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TEMPLATES FOR DYNAMIC SECTIONS -->
+    <!-- The actual UI content is generated here by JavaScript, but this is the structure -->
+
+    <!-- JAVASCRIPT SECTION -->
+    <script>
+        // --- Configuration and Mock Data ---
+        const API_BASE = 'http://localhost:8080/api'; // Base URL for simulated Spring Boot API
+
+        // Mock Data Storage (in-memory for the frontend simulation)
+        let MOCK_DATA = {
+            patients: [
+                { id: 1, name: 'Alice Johnson', age: 35, condition: 'Fever', room: '101A' },
+                { id: 2, name: 'Bob Williams', age: 62, condition: 'Fracture', room: '205B' }
+            ],
+            staff: [
+                { id: 101, name: 'Dr. Evelyn Reed', role: 'Doctor', phone: '555-1001', department: 'Cardiology' },
+                { id: 102, name: 'Nurse Michael Lee', role: 'Nurse', phone: '555-1002', department: 'ICU' },
+                { id: 103, name: 'Dr. Alex Chen', role: 'Doctor', phone: '555-1003', department: 'Orthopedics' },
+                { id: 104, name: 'Nurse Sarah Kim', role: 'Nurse', phone: '555-1004', department: 'Pediatrics' }
+            ],
+            pharmacy: [
+                { id: 1001, drugName: 'Ibuprofen (200mg)', stock: 5000, cost: 0.50, supplier: 'PharmaCorp' },
+                { id: 1002, drugName: 'Amoxicillin (500mg)', stock: 850, cost: 2.25, supplier: 'GlobalMeds' }
+            ],
+            billing: [
+                { id: 301, patientId: 1, service: 'Consultation Fee', amount: 150.00, status: 'UNPAID' },
+                { id: 302, patientId: 2, service: 'Surgery Charge', amount: 5500.00, status: 'PAID' }
+            ],
+            reception: [
+                { id: 401, patientName: 'Alice Johnson', doctor: 'Dr. Reed', time: '2024-11-25 10:00', status: 'Scheduled' },
+                { id: 402, patientName: 'Charlie Brown', doctor: 'Dr. Chen', time: '2024-11-25 11:30', status: 'Checked-in' }
+            ]
+        };
+
+        // --- Global State and Utilities ---
+
+        let currentSection = 'patients';
+        
+        /**
+         * Simulates a network call delay.
+         * @returns {Promise<void>}
+         */
+        function mockDelay() {
+            return new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        /**
+         * Displays a temporary status message (like a toast notification).
+         * @param {string} message The message to display.
+         * @param {string} type 'success', 'error', or 'info'.
+         */
+        function showMessage(message, type) {
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.textContent = message;
+            statusMessage.className = `p-4 mb-6 text-sm rounded-lg border-l-4`; // Reset classes
+            statusMessage.classList.remove('hidden');
+
+            if (type === 'success') {
+                statusMessage.classList.add('bg-green-100', 'text-green-800', 'border-green-500');
+            } else if (type === 'error') {
+                statusMessage.classList.add('bg-red-100', 'text-red-800', 'border-red-500');
+            } else {
+                statusMessage.classList.add('bg-blue-100', 'text-blue-800', 'border-blue-500');
+            }
+            
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 4000);
+        }
+
+        /**
+         * Sanitizes a string for use in HTML (basic escaping).
+         * @param {string} str
+         * @returns {string}
+         */
+        function sanitize(str) {
+            if (typeof str === 'string') {
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            }
+            return str;
+        }
+
+        // --- CRUD Simulation Functions (Frontend Logic) ---
+
+        /**
+         * Simulates fetching data from the backend API.
+         * @param {string} entity The entity key in MOCK_DATA.
+         * @returns {Promise<Array<Object>>}
+         */
+        async function fetchData(entity) {
+            await mockDelay();
+            
+            let data = MOCK_DATA[entity] || [];
+            let displayEntity = entity;
+
+            // Handle role-based filtering for Staff
+            if (entity === 'doctor') {
+                data = MOCK_DATA.staff.filter(s => s.role === 'Doctor');
+                displayEntity = 'staff';
+            } else if (entity === 'nurse') {
+                data = MOCK_DATA.staff.filter(s => s.role === 'Nurse');
+                displayEntity = 'staff';
+            }
+
+            showMessage(`Simulated GET ${API_BASE}/${displayEntity}. Data loaded.`, 'success');
+            return data;
+        }
+
+        /**
+         * Simulates POST/PUT operation (Add/Update).
+         * @param {string} entity The entity key.
+         * @param {Object} data The data object to save.
+         * @param {string} method 'POST' or 'PUT'
+         */
+        async function saveRecord(entity, data, method) {
+            await mockDelay();
+            let displayEntity = entity;
+            if (entity === 'doctor' || entity === 'nurse') displayEntity = 'staff';
+
+            if (method === 'POST') {
+                // Assign new ID
+                const newId = (MOCK_DATA[displayEntity].reduce((max, item) => Math.max(max, item.id), 0) || 0) + 1;
+                data.id = newId;
+                MOCK_DATA[displayEntity].push(data);
+                showMessage(`Simulated POST ${API_BASE}/${displayEntity}. New record added (ID: ${newId}).`, 'success');
+            } else if (method === 'PUT') {
+                const index = MOCK_DATA[displayEntity].findIndex(item => item.id === data.id);
+                if (index > -1) {
+                    MOCK_DATA[displayEntity][index] = { ...MOCK_DATA[displayEntity][index], ...data };
+                    showMessage(`Simulated PUT ${API_BASE}/${displayEntity}/${data.id}. Record updated.`, 'success');
+                } else {
+                    showMessage(`Error: Record with ID ${data.id} not found for update.`, 'error');
+                }
+            }
+            showSection(entity); // Refresh the view
+        }
+
+        /**
+         * Simulates DELETE operation.
+         * @param {string} entity The entity key.
+         * @param {number} id The ID of the record to delete.
+         */
+        async function deleteRecord(entity, id) {
+            await mockDelay();
+            let displayEntity = entity;
+            if (entity === 'doctor' || entity === 'nurse') displayEntity = 'staff';
+
+            const initialLength = MOCK_DATA[displayEntity].length;
+            MOCK_DATA[displayEntity] = MOCK_DATA[displayEntity].filter(item => item.id !== id);
+
+            if (MOCK_DATA[displayEntity].length < initialLength) {
+                showMessage(`Simulated DELETE ${API_BASE}/${displayEntity}/${id}. Record deleted.`, 'success');
+            } else {
+                showMessage(`Error: Record with ID ${id} not found for deletion.`, 'error');
+            }
+            showSection(entity); // Refresh the view
+        }
+
+        // --- UI Generation Functions ---
+
+        /**
+         * Gets the table headers for a given entity.
+         * @param {string} entity
+         * @returns {Array<string>}
+         */
+        function getHeaders(entity) {
+            const map = {
+                patients: ['ID', 'Name', 'Age', 'Condition', 'Room'],
+                staff: ['ID', 'Name', 'Role', 'Department', 'Phone'],
+                pharmacy: ['ID', 'Drug Name', 'Stock', 'Cost ($)', 'Supplier'],
+                billing: ['ID', 'Patient ID', 'Service', 'Amount', 'Status'],
+                reception: ['ID', 'Patient Name', 'Doctor', 'Appointment Time', 'Status'],
+                doctor: ['ID', 'Name', 'Department', 'Phone'],
+                nurse: ['ID', 'Name', 'Department', 'Phone']
+            };
+            return map[entity] || ['ID', 'Data'];
+        }
+
+        /**
+         * Creates the main HTML content for a CRUD entity section.
+         * @param {string} entity
+         * @param {string} title
+         * @param {Array<Object>} data
+         * @returns {string} HTML string
+         */
+        function createCrudSection(entity, title, data) {
+            const headers = getHeaders(entity);
+            const dataKeys = Object.keys(data[0] || {}).filter(key => key !== 'role'); // Hide 'role' for Doctor/Nurse views
+
+            let tableRows = data.map(item => {
+                let cells = dataKeys.map(key => {
+                    let value = item[key];
+                    if (key === 'role' && (entity === 'doctor' || entity === 'nurse')) return ''; // Skip role column
+                    
+                    // Special formatting for status/amount
+                    if (key === 'status') {
+                        const color = value === 'PAID' || value === 'Scheduled' || value === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                        value = `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${color}">${value}</span>`;
+                    } else if (key === 'amount') {
+                        value = `$${parseFloat(value).toFixed(2)}`;
+                    }
+
+                    return `<td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700">${value}</td>`;
+                }).join('');
+
+                const actions = `
+                    <td class="px-6 py-3 whitespace-nowrap text-sm font-medium">
+                        <button onclick="openModal('${entity}', ${item.id}, 'edit')" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                        <button onclick="openModal('${entity}', ${item.id}, 'delete')" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                `;
+                return `<tr class="hover:bg-gray-50">${cells}${actions}</tr>`;
+            }).join('');
+
+            return `
+                <section class="bg-white p-6 rounded-lg shadow-xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">${title}</h2>
+                    
+                    <!-- Table View -->
+                    <div class="mb-8 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    ${headers.map(header => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`).join('')}
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${tableRows || '<tr><td colspan="' + (headers.length + 1) + '" class="text-center py-6 text-gray-500">No records found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4 border-t pt-4">Add New ${title.split(' ')[0]} Record</h3>
+                    <form onsubmit="event.preventDefault(); submitForm('${entity}', 'POST');" id="form-${entity}" class="space-y-4">
+                        ${generateFormFields(entity)}
+                        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150">
+                            Add Record
+                        </button>
+                    </form>
+                </section>
+            `;
+        }
+
+        /**
+         * Generates form fields for adding/updating an entity.
+         * @param {string} entity
+         * @param {Object|null} data
+         * @returns {string} HTML string
+         */
+        function generateFormFields(entity, data = {}) {
+            const fieldsMap = {
+                patients: [
+                    { name: 'name', label: 'Name', type: 'text', placeholder: 'Patient Name' },
+                    { name: 'age', label: 'Age', type: 'number', placeholder: 'Age' },
+                    { name: 'condition', label: 'Condition', type: 'text', placeholder: 'Diagnosis' },
+                    { name: 'room', label: 'Room', type: 'text', placeholder: 'Room Number' }
+                ],
+                staff: [
+                    { name: 'name', label: 'Name', type: 'text', placeholder: 'Staff Name' },
+                    { name: 'role', label: 'Role', type: 'select', options: ['Doctor', 'Nurse', 'Admin'], placeholder: 'Role' },
+                    { name: 'department', label: 'Department', type: 'text', placeholder: 'Department (e.g., ER, ICU)' },
+                    { name: 'phone', label: 'Phone', type: 'text', placeholder: '555-0000' }
+                ],
+                pharmacy: [
+                    { name: 'drugName', label: 'Drug Name', type: 'text', placeholder: 'Ibuprofen' },
+                    { name: 'stock', label: 'Stock Level', type: 'number', placeholder: '5000' },
+                    { name: 'cost', label: 'Unit Cost', type: 'number', placeholder: '2.50' },
+                    { name: 'supplier', label: 'Supplier', type: 'text', placeholder: 'GlobalMeds' }
+                ],
+                billing: [
+                    { name: 'patientId', label: 'Patient ID', type: 'number', placeholder: '1' },
+                    { name: 'service', label: 'Service', type: 'text', placeholder: 'Consultation Fee' },
+                    { name: 'amount', label: 'Amount', type: 'number', placeholder: '150.00' },
+                    { name: 'status', label: 'Status', type: 'select', options: ['PAID', 'UNPAID'], placeholder: 'Status' }
+                ],
+                reception: [
+                    { name: 'patientName', label: 'Patient Name', type: 'text', placeholder: 'Jane Doe' },
+                    { name: 'doctor', label: 'Doctor', type: 'text', placeholder: 'Dr. Evelyn Reed' },
+                    { name: 'time', label: 'Appointment Time', type: 'datetime-local', placeholder: 'Time' },
+                    { name: 'status', label: 'Status', type: 'select', options: ['Scheduled', 'Checked-in', 'Completed', 'Canceled'], placeholder: 'Status' }
+                ]
+            };
+
+            const fields = fieldsMap[entity] || fieldsMap.patients;
+            let html = '';
+
+            // Handle ID field for PUT (Update) forms
+            if (data.id) {
+                html += `<input type="hidden" name="id" value="${data.id}">`;
+            }
+
+            fields.forEach(field => {
+                const value = data[field.name] !== undefined ? data[field.name] : '';
+                let inputHtml;
+                
+                if (field.type === 'select') {
+                    inputHtml = `
+                        <select name="${field.name}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                            <option value="">-- Select ${field.label} --</option>
+                            ${field.options.map(option => `
+                                <option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>
+                            `).join('')}
+                        </select>
+                    `;
+                } else {
+                    inputHtml = `
+                        <input type="${field.type}" name="${field.name}" placeholder="${field.placeholder}" 
+                               value="${sanitize(value)}" step="${field.type === 'number' ? '0.01' : ''}" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                    `;
+                }
+
+                html += `
+                    <div class="grid grid-cols-1 gap-2">
+                        <label class="block text-sm font-medium text-gray-700">${field.label}</label>
+                        ${inputHtml}
+                    </div>
+                `;
+            });
+
+            return html;
+        }
+
+        // --- Form Submission Handler ---
+
+        /**
+         * Handles form submission for adding or updating records.
+         * @param {string} entity
+         * @param {string} method 'POST' or 'PUT'
+         */
+        function submitForm(entity, method) {
+            let displayEntity = entity;
+            if (entity === 'doctor' || entity === 'nurse') displayEntity = 'staff';
+
+            const form = document.getElementById(`form-${entity}`);
+            const formData = new FormData(form);
+            const data = {};
+
+            for (const [key, value] of formData.entries()) {
+                if (key === 'id' || (form.querySelector(`[name="${key}"]`).type === 'number' && key !== 'phone')) {
+                    data[key] = parseFloat(value);
+                } else {
+                    data[key] = value;
+                }
+            }
+
+            // Ensure Staff roles are set correctly, even if doctor/nurse view is used for display
+            if (entity === 'doctor' || entity === 'nurse') {
+                data.role = entity.charAt(0).toUpperCase() + entity.slice(1);
+            }
+
+            // If updating, the id must be an integer
+            if (method === 'PUT' && data.id) {
+                data.id = parseInt(data.id);
+            }
+
+            saveRecord(entity, data, method);
+        }
+
+        // --- Navigation and Section Display ---
+
+        /**
+         * Renders the specified section of the dashboard.
+         * @param {string} entity The entity key to display.
+         */
+        async function showSection(entity) {
+            currentSection = entity;
+            const container = document.getElementById('content-container');
+            container.innerHTML = `<div class="flex items-center justify-center p-10"><div class="loader w-8 h-8 border-4 rounded-full mr-3"></div><span class="text-lg text-gray-600">Loading ${entity}...</span></div>`;
+            
+            // Update sidebar active state
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('bg-gray-900', 'text-indigo-400');
+                link.classList.add('text-white');
+            });
+            const activeLink = document.querySelector(`.nav-link[onclick*="showSection('${entity}')"]`);
+            if (activeLink) {
+                activeLink.classList.add('bg-gray-900', 'text-indigo-400');
+                activeLink.classList.remove('text-white');
+            }
+
+            if (entity === 'backend') {
+                container.innerHTML = createBackendSection();
+                return;
+            }
+
+            try {
+                const data = await fetchData(entity);
+                const titleMap = {
+                    patients: 'Patient',
+                    staff: 'Staff (All Roles)',
+                    pharmacy: 'Pharmacy Inventory',
+                    billing: 'Billing & Invoice',
+                    reception: 'Reception & Appointments',
+                    doctor: 'Staff (Doctors Only)',
+                    nurse: 'Staff (Nurses Only)'
+                };
+                const title = titleMap[entity];
+                
+                container.innerHTML = createCrudSection(entity, title, data);
+            } catch (error) {
+                container.innerHTML = `<div class="p-8 bg-red-100 border border-red-400 text-red-700 rounded-lg">Error loading data: ${error.message}</div>`;
+                console.error(error);
+            }
+        }
+
+        // --- Backend Code Display ---
+
+        function createBackendSection() {
+            const javaCodeMap = {
+                'application.properties': `
+spring.datasource.url=jdbc:h2:mem:hospitaldb;DB_CLOSE_DELAY=-1
+spring.datasource.driverClassName=org.h2.Driver
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.h2.console.enabled=true
+spring.jpa.hibernate.ddl-auto=update
+`,
+                'HospitalApplication.java': `
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class HospitalApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(HospitalApplication.class, args);
+    }
+}
+`,
+                // --- Entities ---
+                'Patient.java': `
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Patient {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private int age;
+    private String condition;
+    private String room;
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public int getAge() { return age; }
+    public void setAge(int age) { this.age = age; }
+    public String getCondition() { return condition; }
+    public void setCondition(String condition) { this.condition = condition; }
+    public String getRoom() { return room; }
+    public void setRoom(String room) { this.room = room; }
+}
+`,
+                'Staff.java': `
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Staff {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private String role; // Nurse or Doctor
+    private String phone;
+    private String department;
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+}
+`,
+                'Pharmacy.java': `
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Pharmacy {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String drugName;
+    private int stock;
+    private double cost;
+    private String supplier;
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getDrugName() { return drugName; }
+    public void setDrugName(String drugName) { this.drugName = drugName; }
+    public int getStock() { return stock; }
+    public void setStock(int stock) { this.stock = stock; }
+    public double getCost() { return cost; }
+    public void setCost(double cost) { this.cost = cost; }
+    public String getSupplier() { return supplier; }
+    public void setSupplier(String supplier) { this.supplier = supplier; }
+}
+`,
+                'Billing.java': `
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Billing {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private Long patientId;
+    private String service;
+    private double amount;
+    private String status; // PAID or UNPAID
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getPatientId() { return patientId; }
+    public void setPatientId(Long patientId) { this.patientId = patientId; }
+    public String getService() { return service; }
+    public void setService(String service) { this.service = service; }
+    public double getAmount() { return amount; }
+    public void setAmount(double amount) { this.amount = amount; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+}
+`,
+                'Reception.java': `
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Reception {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String patientName;
+    private String doctor;
+    private String time; // Could be LocalDateTime in Spring Boot
+    private String status; // Scheduled, Checked-in, Canceled
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getPatientName() { return patientName; }
+    public void setPatientName(String patientName) { this.patientName = patientName; }
+    public String getDoctor() { return doctor; }
+    public void setDoctor(String doctor) { this.doctor = doctor; }
+    public String getTime() { return time; }
+    public void setTime(String time) { this.time = time; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+}
+`,
+                // --- Repositories ---
+                'PatientRepository.java': `
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface PatientRepository extends JpaRepository<Patient, Long> {
+}
+`,
+                'StaffRepository.java': `
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+
+@Repository
+public interface StaffRepository extends JpaRepository<Staff, Long> {
+    List<Staff> findByRole(String role);
+}
+`,
+                'PharmacyRepository.java': `
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface PharmacyRepository extends JpaRepository<Pharmacy, Long> {
+}
+`,
+                'BillingRepository.java': `
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface BillingRepository extends JpaRepository<Billing, Long> {
+}
+`,
+                'ReceptionRepository.java': `
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface ReceptionRepository extends JpaRepository<Reception, Long> {
+}
+`,
+                // --- Controllers ---
+                'PatientController.java': `
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/patients")
+public class PatientController {
+    @Autowired
+    private PatientRepository patientRepository;
+
+    @GetMapping
+    public List<Patient> getAll() {
+        return patientRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public Patient getById(@PathVariable Long id) {
+        return patientRepository.findById(id).orElse(null);
+    }
+
+    @PostMapping
+    public Patient create(@RequestBody Patient patient) {
+        return patientRepository.save(patient);
+    }
+
+    @PutMapping("/{id}")
+    public Patient update(@PathVariable Long id, @RequestBody Patient patientDetails) {
+        Patient patient = patientRepository.findById(id).orElse(null);
+        if (patient != null) {
+            patient.setName(patientDetails.getName());
+            patient.setAge(patientDetails.getAge());
+            patient.setCondition(patientDetails.getCondition());
+            patient.setRoom(patientDetails.getRoom());
+            return patientRepository.save(patient);
+        }
+        return null; // Should return 404 in a real app
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        patientRepository.deleteById(id);
+    }
+}
+`,
+                'StaffController.java': `
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/staff")
+public class StaffController {
+    @Autowired
+    private StaffRepository staffRepository;
+
+    @GetMapping
+    public List<Staff> getAll() {
+        return staffRepository.findAll();
+    }
+
+    @GetMapping("/role/{role}")
+    public List<Staff> getByRole(@PathVariable String role) {
+        return staffRepository.findByRole(role);
+    }
+
+    @GetMapping("/{id}")
+    public Staff getById(@PathVariable Long id) {
+        return staffRepository.findById(id).orElse(null);
+    }
+
+    @PostMapping
+    public Staff create(@RequestBody Staff staff) {
+        return staffRepository.save(staff);
+    }
+
+    @PutMapping("/{id}")
+    public Staff update(@PathVariable Long id, @RequestBody Staff staffDetails) {
+        Staff staff = staffRepository.findById(id).orElse(null);
+        if (staff != null) {
+            staff.setName(staffDetails.getName());
+            staff.setRole(staffDetails.getRole());
+            staff.setPhone(staffDetails.getPhone());
+            staff.setDepartment(staffDetails.getDepartment());
+            return staffRepository.save(staff);
+        }
+        return null;
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        staffRepository.deleteById(id);
+    }
+}
+`,
+                'PharmacyController.java': `
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/pharmacy")
+public class PharmacyController {
+    @Autowired
+    private PharmacyRepository pharmacyRepository;
+
+    @GetMapping
+    public List<Pharmacy> getAll() {
+        return pharmacyRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public Pharmacy getById(@PathVariable Long id) {
+        return pharmacyRepository.findById(id).orElse(null);
+    }
+
+    @PostMapping
+    public Pharmacy create(@RequestBody Pharmacy drug) {
+        return pharmacyRepository.save(drug);
+    }
+
+    @PutMapping("/{id}")
+    public Pharmacy update(@PathVariable Long id, @RequestBody Pharmacy drugDetails) {
+        Pharmacy drug = pharmacyRepository.findById(id).orElse(null);
+        if (drug != null) {
+            drug.setDrugName(drugDetails.getDrugName());
+            drug.setStock(drugDetails.getStock());
+            drug.setCost(drugDetails.getCost());
+            drug.setSupplier(drugDetails.getSupplier());
+            return pharmacyRepository.save(drug);
+        }
+        return null;
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        pharmacyRepository.deleteById(id);
+    }
+}
+`,
+                'BillingController.java': `
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/billing")
+public class BillingController {
+    @Autowired
+    private BillingRepository billingRepository;
+
+    @GetMapping
+    public List<Billing> getAll() {
+        return billingRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public Billing getById(@PathVariable Long id) {
+        return billingRepository.findById(id).orElse(null);
+    }
+
+    @PostMapping
+    public Billing create(@RequestBody Billing invoice) {
+        return billingRepository.save(invoice);
+    }
+
+    @PutMapping("/{id}")
+    public Billing update(@PathVariable Long id, @RequestBody Billing invoiceDetails) {
+        Billing invoice = billingRepository.findById(id).orElse(null);
+        if (invoice != null) {
+            invoice.setPatientId(invoiceDetails.getPatientId());
+            invoice.setService(invoiceDetails.getService());
+            invoice.setAmount(invoiceDetails.getAmount());
+            invoice.setStatus(invoiceDetails.getStatus());
+            return billingRepository.save(invoice);
+        }
+        return null;
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        billingRepository.deleteById(id);
+    }
+}
+`,
+                'ReceptionController.java': `
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/reception")
+public class ReceptionController {
+    @Autowired
+    private ReceptionRepository receptionRepository;
+
+    @GetMapping
+    public List<Reception> getAll() {
+        return receptionRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public Reception getById(@PathVariable Long id) {
+        return receptionRepository.findById(id).orElse(null);
+    }
+
+    @PostMapping
+    public Reception create(@RequestBody Reception appointment) {
+        return receptionRepository.save(appointment);
+    }
+
+    @PutMapping("/{id}")
+    public Reception update(@PathVariable Long id, @RequestBody Reception appointmentDetails) {
+        Reception appointment = receptionRepository.findById(id).orElse(null);
+        if (appointment != null) {
+            appointment.setPatientName(appointmentDetails.getPatientName());
+            appointment.setDoctor(appointmentDetails.getDoctor());
+            appointment.setTime(appointmentDetails.getTime());
+            appointment.setStatus(appointmentDetails.getStatus());
+            return receptionRepository.save(appointment);
+        }
+        return null;
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        receptionRepository.deleteById(id);
+    }
+}
+`,
+            };
+
+            let tabsHtml = `
+                <div class="mb-4 border-b border-gray-200">
+                    <ul class="flex flex-wrap -mb-px" id="backend-tabs">
+                        ${Object.keys(javaCodeMap).map((file, index) => `
+                            <li class="mr-2">
+                                <button onclick="openTab(event, 'tab-${index}')" 
+                                    class="inline-block p-4 text-sm font-medium text-center border-b-2 rounded-t-lg 
+                                    ${index === 0 ? 'text-indigo-600 border-indigo-600' : 'border-transparent hover:text-gray-600 hover:border-gray-300'}">
+                                    ${file}
+                                </button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <div id="backend-content-area">
+                    ${Object.keys(javaCodeMap).map((file, index) => `
+                        <div id="tab-${index}" class="tab-content ${index === 0 ? 'active' : ''}">
+                            <div class="code-block bg-gray-900 text-sm text-green-400 p-4">
+                                <pre>${javaCodeMap[file]}</pre>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            return `
+                <section class="bg-white p-6 rounded-lg shadow-xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Spring Boot Backend Source Code</h2>
+                    <p class="text-gray-600 mb-6">This section contains the full, runnable Java and properties files required for the backend, separated by file structure.</p>
+                    ${tabsHtml}
+                </section>
+            `;
+        }
+
+        // --- Modal/Confirmation Logic ---
+        let currentAction = {};
+
+        function openModal(entity, id, action) {
+            currentAction = { entity, id, action };
+            
+            const modal = document.getElementById('action-modal');
+            const title = document.getElementById('modal-title');
+            const message = document.getElementById('modal-message');
+            const confirmBtn = document.getElementById('modal-confirm');
+            const form = document.getElementById(`form-${entity}`);
+            
+            // Get the record data for display/editing
+            const record = MOCK_DATA[entity].find(r => r.id === id);
+            if (!record) {
+                showMessage(`Record ID ${id} not found in ${entity}.`, 'error');
+                return;
+            }
+
+            if (action === 'delete') {
+                title.textContent = 'Confirm Deletion';
+                message.innerHTML = `Are you sure you want to delete the record for <strong>${record.name || record.drugName || record.service || record.patientName}</strong> (ID: ${id})? This action is irreversible.`;
+                confirmBtn.textContent = 'Delete';
+                confirmBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                confirmBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                // Use the generic form template for confirmation in this case
+                form.innerHTML = ''; 
+            } else if (action === 'edit') {
+                title.textContent = `Edit Record (ID: ${id})`;
+                message.textContent = 'Update the fields below and confirm.';
+                confirmBtn.textContent = 'Save Changes';
+                confirmBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                confirmBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                
+                // Regenerate the form inside the modal with current data
+                modal.querySelector('.bg-white').style.maxWidth = '600px'; // Make edit form wider
+                message.insertAdjacentHTML('afterend', `
+                    <form onsubmit="event.preventDefault(); submitEditForm('${entity}');" id="modal-edit-form" class="space-y-4 mb-6">
+                        ${generateFormFields(entity, record)}
+                    </form>
+                `);
+                
+                // Hide the original confirm button, as the new form submit will handle it
+                confirmBtn.style.display = 'none';
+                modal.querySelector('#modal-cancel').textContent = 'Close';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('action-modal');
+            const editForm = document.getElementById('modal-edit-form');
+            if (editForm) editForm.remove();
+            modal.querySelector('.bg-white').style.maxWidth = '400px'; // Reset width
+            modal.querySelector('#modal-confirm').style.display = 'inline-block'; // Show button
+            modal.querySelector('#modal-cancel').textContent = 'Cancel'; // Reset cancel text
+
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentAction = {};
+        }
+
+        function submitEditForm(entity) {
+            const form = document.getElementById('modal-edit-form');
+            const formData = new FormData(form);
+            const data = {};
+
+            for (const [key, value] of formData.entries()) {
+                if (key === 'id' || form.querySelector(`[name="${key}"]`).type === 'number' && key !== 'phone') {
+                    data[key] = parseFloat(value);
+                } else {
+                    data[key] = value;
+                }
+            }
+
+            // Ensure Staff roles are set correctly
+            if (entity === 'staff') {
+                // If it was staff, the role is explicitly in the form data
+            } else if (entity === 'doctor' || entity === 'nurse') {
+                data.role = entity.charAt(0).toUpperCase() + entity.slice(1);
+            }
+            
+            // Re-use saveRecord for PUT
+            saveRecord(entity, data, 'PUT');
+            closeModal();
+        }
+
+        // Global listener for modal confirmation
+        document.getElementById('modal-confirm').addEventListener('click', () => {
+            if (currentAction.action === 'delete') {
+                deleteRecord(currentAction.entity, currentAction.id);
+            }
+            closeModal();
+        });
+
+        document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+        // --- Tab Logic for Backend Code ---
+
+        function openTab(evt, tabId) {
+            let tabContents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            let tabButtons = document.getElementById('backend-tabs').getElementsByTagName('button');
+            for (let i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].classList.remove('text-indigo-600', 'border-indigo-600');
+                tabButtons[i].classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+            }
+            
+            document.getElementById(tabId).classList.add('active');
+            evt.currentTarget.classList.add('text-indigo-600', 'border-indigo-600');
+            evt.currentTarget.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        }
+
+        // --- Initialization ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial render
+            showSection(currentSection);
+
+            // Handle Mobile Menu Toggle
+            document.getElementById('menu-toggle').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            });
+
+            // Close sidebar when clicking main content (mobile)
+            document.querySelector('main').addEventListener('click', () => {
+                if (window.innerWidth < 1024 && !document.getElementById('sidebar').classList.contains('-translate-x-full')) {
+                    document.getElementById('sidebar').classList.add('-translate-x-full');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
