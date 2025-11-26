@@ -6,10 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hospital Management System – Group 5</title>
 
-  <!-- Tailwind CSS CDN (UTILITY-BASED STYLING, NO CUSTOM BUILD NEEDED) -->
+  <!-- Tailwind CSS CDN (UTILITY-BASED STYLING) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Font -->
+  <!-- Global styles -->
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body {
@@ -29,6 +29,23 @@
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+
+    /* Simple circle "gauge" for gamified KPIs */
+    .circle-gauge {
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      border: 8px solid rgba(14, 165, 233, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    .circle-gauge-fill {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      transform-origin: center center;
+      background: conic-gradient(#0ea5e9 var(--angle), transparent 0);
+    }
   </style>
 </head>
 
@@ -105,10 +122,10 @@
       </button>
 
       <p class="px-2 mt-4 text-[0.65rem] tracking-widest text-slate-400 uppercase mb-1">
-        Backend Java (Spring Boot)
+        Backend Java (OOP)
       </p>
       <button onclick="showSection('backend')" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">
-        View Java Code (Collaborative)
+        View Java Code (OOP)
       </button>
     </nav>
 
@@ -201,8 +218,54 @@
     </div>
   </div>
 
+  <!-- DETAIL MODAL (for "View" actions) -->
+  <div
+    id="detail-modal"
+    class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-40"
+  >
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 max-h-[80vh] overflow-y-auto">
+      <h3 id="detail-title" class="text-lg font-semibold text-slate-900 mb-2">Record Details</h3>
+      <p id="detail-subtitle" class="text-xs text-slate-500 mb-3"></p>
+      <div id="detail-body" class="space-y-3 text-sm text-slate-700"></div>
+      <div class="flex justify-end mt-4">
+        <button
+          onclick="closeDetailModal()"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FOR EDIT / DELETE -->
+  <div
+    id="action-modal"
+    class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-40"
+  >
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5">
+      <h3 id="modal-title" class="text-lg font-semibold text-slate-900 mb-2">Confirm Action</h3>
+      <p id="modal-message" class="text-sm text-slate-600 mb-3"></p>
+      <div id="modal-form-wrapper"></div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button
+          id="modal-cancel"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          onclick="closeModal()"
+        >
+          Cancel
+        </button>
+        <button
+          id="modal-confirm"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT SECTION -->
-  <!-- LANGUAGE MARKER: JAVASCRIPT (FRONTEND LOGIC, MOCK "DATABASE", KPI COMPUTATION) -->
   <script>
     /****************************************************
      * AUTH MODULE (ENCAPSULATION OF LOGIN STATE)
@@ -241,7 +304,6 @@
         logoutBtn.classList.remove('hidden');
         const auth = getAuth();
         sidebarUser.textContent = auth ? `${auth.displayName} (${auth.username})` : 'Admin';
-        // Once logged in, render the overview + default section
         renderOverview();
         showSection('overview');
       } else {
@@ -272,31 +334,62 @@
     }
 
     /****************************************************
-     * MOCK "DATABASE" + HISTORY (ENCAPSULATION OF DATA)
+     * MOCK "DATABASE" + HISTORY (DATA ENCAPSULATION)
      ****************************************************/
-    // MOCK_DATA is our in-memory simulation of database tables.
+    // MOCK_DATA simulates our DB tables (patients, staff, etc.)
     const MOCK_DATA = {
       patients: [
-        { id: 1, name: 'Alice Johnson', age: 35, condition: 'Fever', room: '101A' },
-        { id: 2, name: 'Bob Williams', age: 62, condition: 'Fracture', room: '205B' }
+        {
+          id: 1,
+          name: 'Alice Johnson',
+          age: 35,
+          condition: 'Fever',
+          room: '101A',
+          notes: 'Admitted from ER with high-grade fever. Responding well to IV fluids and antipyretics.',
+          allergies: 'None reported',
+          nhifNumber: 'NHIF-KEN-001',
+          nextOfKin: 'James Johnson (Brother) – 0712 345 678',
+          lastVisit: '2025-11-20',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 2,
+          name: 'Bob Williams',
+          age: 62,
+          condition: 'Fracture – right femur',
+          room: '205B',
+          notes: 'Post-surgical review after ORIF. Physiotherapy scheduled every morning.',
+          allergies: 'Penicillin',
+          nhifNumber: 'NHIF-KEN-002',
+          nextOfKin: 'Mary Williams (Wife) – 0722 111 222',
+          lastVisit: '2025-11-21',
+          createdAt: new Date().toISOString()
+        }
       ],
+      // More realistic staff list with Kenyan names + consultants
       staff: [
-        { id: 101, name: 'Dr. Evelyn Reed', role: 'Doctor', phone: '555-1001', department: 'Cardiology' },
-        { id: 102, name: 'Nurse Michael Lee', role: 'Nurse', phone: '555-1002', department: 'ICU' },
-        { id: 103, name: 'Dr. Alex Chen', role: 'Doctor', phone: '555-1003', department: 'Orthopedics' },
-        { id: 104, name: 'Nurse Sarah Kim', role: 'Nurse', phone: '555-1004', department: 'Pediatrics' }
+        { id: 101, name: 'Dr. Amina Wanjiru', role: 'Doctor', phone: '0712 100 100', department: 'Cardiology' },
+        { id: 102, name: 'Dr. Brian Otieno', role: 'Doctor', phone: '0712 100 101', department: 'Internal Medicine' },
+        { id: 103, name: 'Dr. Grace Naliaka', role: 'Doctor', phone: '0712 100 102', department: 'Paediatrics' },
+        { id: 104, name: 'Dr. Samuel Mburu (Consultant)', role: 'Doctor', phone: '0712 100 103', department: 'Orthopaedics' },
+        { id: 105, name: 'Dr. Carla Rossi (Visiting)', role: 'Doctor', phone: '+39 333 444 555', department: 'Oncology' },
+        { id: 106, name: 'Nurse Peter Mwangi', role: 'Nurse', phone: '0712 200 100', department: 'Ward 3' },
+        { id: 107, name: 'Nurse Faith Achieng', role: 'Nurse', phone: '0712 200 101', department: 'ICU' },
+        { id: 108, name: 'Nurse Mercy Ndegwa', role: 'Nurse', phone: '0712 200 102', department: 'Emergency' },
+        { id: 109, name: 'Admin – Front Desk (Linet)', role: 'Admin', phone: '0712 300 100', department: 'Reception' },
+        { id: 110, name: 'Admin – Billing (Kiptoo)', role: 'Admin', phone: '0712 300 101', department: 'Finance' }
       ],
       pharmacy: [
-        { id: 1001, drugName: 'Ibuprofen (200mg)', stock: 5000, cost: 50, supplier: 'PharmaCorp' },
-        { id: 1002, drugName: 'Amoxicillin (500mg)', stock: 850, cost: 225, supplier: 'GlobalMeds' }
+        { id: 1001, drugName: 'Ibuprofen (200mg)', stock: 5000, cost: 50, supplier: 'PharmaCorp', createdAt: new Date().toISOString() },
+        { id: 1002, drugName: 'Amoxicillin (500mg)', stock: 850, cost: 225, supplier: 'GlobalMeds', createdAt: new Date().toISOString() }
       ],
       billing: [
-        { id: 301, patientId: 1, service: 'Consultation Fee', amount: 1500.0, status: 'UNPAID' },
-        { id: 302, patientId: 2, service: 'Surgery Charge', amount: 55000.0, status: 'PAID' }
+        { id: 301, patientId: 1, service: 'Consultation Fee', amount: 1500.0, status: 'UNPAID', createdAt: new Date().toISOString() },
+        { id: 302, patientId: 2, service: 'Surgery Charge', amount: 55000.0, status: 'PAID', createdAt: new Date().toISOString() }
       ],
       reception: [
-        { id: 401, patientName: 'Alice Johnson', doctor: 'Dr. Reed', time: '2025-11-25 10:00', status: 'Scheduled' },
-        { id: 402, patientName: 'Charlie Brown', doctor: 'Dr. Chen', time: '2025-11-25 11:30', status: 'Checked-in' }
+        { id: 401, patientName: 'Alice Johnson', doctor: 'Dr. Amina Wanjiru', time: '2025-11-25 10:00', status: 'Scheduled', createdAt: new Date().toISOString() },
+        { id: 402, patientName: 'Charlie Brown', doctor: 'Dr. Samuel Mburu (Consultant)', time: '2025-11-25 11:30', status: 'Checked-in', createdAt: new Date().toISOString() }
       ]
     };
 
@@ -318,25 +411,33 @@
       return `${y}-${m}`;
     }
 
-    // DATA SEEDING: build >1000 patients, 500+ pharmacy, 18-month billing & reception history
+    // Seed big dataset + 18 months of history
     function seedMockDataWithHistory() {
-      // Patients
+      // PATIENTS: grow to ~1,200 total
       let patients = MOCK_DATA.patients;
       let lastPatientId = patients.reduce((max, p) => Math.max(max, p.id), 0) || 0;
       const targetPatients = 1200;
-      const conditions = ['Fever', 'Malaria', 'Check-up', 'Fracture', 'Diabetes', 'Hypertension'];
+      const conditions = ['Fever', 'Malaria', 'Check-up', 'Fracture', 'Diabetes', 'Hypertension', 'Asthma', 'Migraine'];
 
       for (let i = lastPatientId + 1; i <= targetPatients; i++) {
         const date = randomDateWithinMonths(HISTORY_MONTHS);
+        const condition = conditions[Math.floor(Math.random() * conditions.length)];
+
         const p = {
           id: i,
           name: `Patient #${i}`,
           age: 10 + Math.floor(Math.random() * 70),
-          condition: conditions[Math.floor(Math.random() * conditions.length)],
-          room: (100 + (i % 50)) + String.fromCharCode(65 + (i % 3)),
+          condition,
+          room: (100 + (i % 80)) + String.fromCharCode(65 + (i % 3)),
+          notes: `Auto-generated historical record with diagnosis: ${condition}.`,
+          allergies: Math.random() < 0.1 ? 'Penicillin' : 'None reported',
+          nhifNumber: `NHIF-AUTO-${String(i).padStart(4, '0')}`,
+          nextOfKin: `Relative for Patient #${i} – 07${Math.floor(1000000 + Math.random() * 8999999)}`,
+          lastVisit: date.toISOString().slice(0, 10),
           createdAt: date.toISOString()
         };
         patients.push(p);
+
         MOCK_LOGS.push({
           id: `log-p-${i}`,
           timestamp: date.toISOString(),
@@ -348,14 +449,13 @@
       }
       MOCK_DATA.patients = patients;
 
-      // Pharmacy
+      // PHARMACY: grow to 500+ items
       let pharmacy = MOCK_DATA.pharmacy;
       let lastDrugId = pharmacy.reduce((max, d) => Math.max(max, d.id), 0) || 1000;
-      const targetPharmacyItems = 500;
       const baseNames = ['Paracetamol', 'Ibuprofen', 'Metformin', 'Ceftriaxone', 'Omeprazole', 'Salbutamol'];
       const suppliers = ['PharmaCorp', 'GlobalMeds', 'MediSupply', 'HealthPlus'];
 
-      for (let i = pharmacy.length + 1; i <= targetPharmacyItems; i++) {
+      for (let i = pharmacy.length + 1; i <= 500; i++) {
         const date = randomDateWithinMonths(HISTORY_MONTHS);
         const nameBase = baseNames[Math.floor(Math.random() * baseNames.length)];
         const dosage = 100 + 50 * (i % 5);
@@ -368,6 +468,7 @@
           createdAt: date.toISOString()
         };
         pharmacy.push(item);
+
         MOCK_LOGS.push({
           id: `log-ph-${item.id}`,
           timestamp: date.toISOString(),
@@ -379,12 +480,14 @@
       }
       MOCK_DATA.pharmacy = pharmacy;
 
-      // Billing
+      // BILLING: monthly volume
       let billing = MOCK_DATA.billing;
       let lastBillId = billing.reduce((max, b) => Math.max(max, b.id), 0) || 300;
       const services = ['Consultation', 'Lab Tests', 'X-Ray', 'Admission', 'Surgery', 'Physiotherapy'];
 
       const billsPerMonth = 40;
+      const targetPatients = MOCK_DATA.patients.length;
+
       for (let m = 0; m < HISTORY_MONTHS; m++) {
         for (let j = 0; j < billsPerMonth; j++) {
           const date = randomDateWithinMonths(HISTORY_MONTHS);
@@ -416,7 +519,7 @@
       }
       MOCK_DATA.billing = billing;
 
-      // Reception (appointments)
+      // RECEPTION
       let reception = MOCK_DATA.reception;
       let lastRecId = reception.reduce((max, r) => Math.max(max, r.id), 0) || 400;
       const statuses = ['Scheduled', 'Checked-in', 'Completed', 'Canceled'];
@@ -550,7 +653,7 @@
     }
 
     /****************************************************
-     * KPI COMPUTATION + SIMPLE “CHART” RENDERING
+     * KPI COMPUTATION + GAMIFIED SNAPSHOT
      ****************************************************/
     function computeStats() {
       const totalPatients = MOCK_DATA.patients.length;
@@ -565,6 +668,11 @@
         r.status === 'Scheduled' || r.status === 'Checked-in'
       );
 
+      // Quick "hospital health" score (just a playful calculation)
+      const clearanceRate = 1 - (unpaidAmount / (unpaidAmount + 1_000_000));
+      const occupancyFactor = Math.min(totalPatients / 250, 1); // assume 250 beds
+      const score = Math.round((0.5 * clearanceRate + 0.5 * occupancyFactor) * 100);
+
       return {
         totalPatients,
         totalStaff,
@@ -574,7 +682,8 @@
         totalStock,
         unpaidCount: unpaidBills.length,
         unpaidAmount,
-        upcomingCount: upcomingAppointments.length
+        upcomingCount: upcomingAppointments.length,
+        hospitalScore: score < 0 ? 0 : score > 100 ? 100 : score
       };
     }
 
@@ -638,48 +747,110 @@
       const stats = computeStats();
       const { labels, patientSeries, appointmentSeries, revenueSeries } = buildMonthlySeries(12);
 
-      const cardsHtml = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Total Patients</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalPatients}</p>
-            <p class="mt-1 text-[0.7rem] text-slate-500">
-              Based on the last 18 months of registrations.
-            </p>
+      // Simple circular gauge for "Hospital Health Score"
+      const angle = stats.hospitalScore * 3.6; // 100% -> 360deg
+
+      const topRowHtml = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4">
+            <div class="circle-gauge" style="--angle:${angle}deg;">
+              <div class="circle-gauge-fill"></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-xs font-bold text-slate-800">${stats.hospitalScore}</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <p class="text-xs font-medium text-slate-500 mb-1">Hospital Health Score</p>
+              <p class="text-sm font-semibold text-slate-900">
+                ${stats.hospitalScore}/100
+              </p>
+              <p class="text-[0.7rem] text-slate-500">
+                Based on occupancy & billing clearance (simulated).
+              </p>
+            </div>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Staff</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalStaff}</p>
-            <p class="mt-1 text-[0.7rem] text-slate-500">
-              Doctors: ${stats.totalDoctors} &bull; Nurses: ${stats.totalNurses}
-            </p>
+
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-500 mb-1">Patients & Capacity</p>
+              <p class="text-2xl font-bold text-slate-900">${stats.totalPatients}</p>
+              <p class="text-[0.7rem] text-slate-500">
+                Approx. capacity: 250 beds. Current estimated occupancy:
+              </p>
+            </div>
+            <div class="mt-2 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div
+                class="h-2 bg-emerald-500 rounded-full"
+                style="width:${Math.min(stats.totalPatients / 250 * 100, 100)}%;"
+              ></div>
+            </div>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Pharmacy Items</p>
-            <p class="text-2xl font-bold text-slate-900">${stats.totalPharmacyItems}</p>
-            <p class="mt-1 text-[0.7rem] text-slate-500">
-              Total stock units: ${stats.totalStock.toLocaleString('en-KE')}
+
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <p class="text-xs font-medium text-slate-500 mb-1">Revenue & Outstanding</p>
+                <p class="text-sm font-semibold text-slate-900">
+                  Unpaid: KES ${stats.unpaidAmount.toFixed(0).toLocaleString('en-KE')}
+                </p>
+              </div>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[0.65rem] font-medium">
+                ${stats.unpaidCount} open bills
+              </span>
+            </div>
+            <p class="text-[0.7rem] text-slate-500 mb-1">
+              Tip: keep this number low to improve the health score.
             </p>
+            <div class="mt-1 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div
+                class="h-2 bg-amber-500 rounded-full"
+                style="width:${Math.min(stats.unpaidCount / 200 * 100, 100)}%;"
+              ></div>
+            </div>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <p class="text-xs font-medium text-slate-500 mb-1">Unpaid Bills</p>
-            <p class="text-2xl font-bold text-rose-600">${stats.unpaidCount}</p>
-            <p class="mt-1 text-[0.7rem] text-slate-500">
-              Outstanding: KES ${stats.unpaidAmount.toFixed(0).toLocaleString('en-KE')}
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
-          <span>
-            Upcoming appointments: <span class="font-semibold text-slate-800">${stats.upcomingCount}</span>
-          </span>
-          <span class="hidden sm:inline">
-            Data simulated for 18 months of hospital activity.
-          </span>
         </div>
       `;
 
-      const kpiHtml = `
+      const secondaryRowHtml = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+            <p class="text-[0.65rem] text-slate-500 mb-1">Total Staff</p>
+            <p class="text-xl font-semibold text-slate-900">${stats.totalStaff}</p>
+            <p class="text-[0.65rem] text-slate-500">
+              ${stats.totalDoctors} doctors • ${stats.totalNurses} nurses
+            </p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+            <p class="text-[0.65rem] text-slate-500 mb-1">Pharmacy Items</p>
+            <p class="text-xl font-semibold text-slate-900">${stats.totalPharmacyItems}</p>
+            <p class="text-[0.65rem] text-slate-500">
+              Total units in stock: ${stats.totalStock.toLocaleString('en-KE')}
+            </p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+            <p class="text-[0.65rem] text-slate-500 mb-1">Upcoming Appointments</p>
+            <p class="text-xl font-semibold text-slate-900">${stats.upcomingCount}</p>
+            <p class="text-[0.65rem] text-slate-500">
+              Combination of Scheduled & Checked-in.
+            </p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+            <p class="text-[0.65rem] text-slate-500 mb-1">Gamified Badge</p>
+            <p class="text-[0.8rem] font-semibold text-slate-900">
+              ${
+                stats.hospitalScore >= 80 ? '🏅 Gold – High Performance' :
+                stats.hospitalScore >= 60 ? '🥈 Silver – Stable' :
+                '🥉 Bronze – Needs Attention'
+              }
+            </p>
+            <p class="text-[0.65rem] text-slate-500">
+              Score auto-updates as data changes.
+            </p>
+          </div>
+        </div>
+      `;
+
+      const chartsRowHtml = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <h3 class="text-xs font-semibold text-slate-800 mb-1">
@@ -711,19 +882,19 @@
         </div>
       `;
 
-      container.innerHTML = cardsHtml + kpiHtml;
+      container.innerHTML = topRowHtml + secondaryRowHtml + chartsRowHtml;
     }
 
     /****************************************************
-     * CRUD TABLE + FORM GENERATION (UI)
+     * TABLE / LIST GENERATION (NO HORIZONTAL SCROLL)
      ****************************************************/
     function getHeaders(entity) {
       const map = {
         patients: ['ID', 'Name', 'Age', 'Condition', 'Room'],
         staff: ['ID', 'Name', 'Role', 'Department', 'Phone'],
-        pharmacy: ['ID', 'Drug Name', 'Stock', 'Cost (KES)', 'Supplier'],
+        pharmacy: ['ID', 'Drug Name', 'Stock', 'Cost (KES)'],
         billing: ['ID', 'Patient ID', 'Service', 'Amount (KES)', 'Status'],
-        reception: ['ID', 'Patient Name', 'Doctor', 'Appointment Time', 'Status'],
+        reception: ['ID', 'Patient Name', 'Doctor', 'Time', 'Status'],
         doctor: ['ID', 'Name', 'Department', 'Phone'],
         nurse: ['ID', 'Name', 'Department', 'Phone']
       };
@@ -736,7 +907,8 @@
           { name: 'name', label: 'Name', type: 'text', placeholder: 'Patient Name' },
           { name: 'age', label: 'Age', type: 'number', placeholder: 'Age' },
           { name: 'condition', label: 'Condition', type: 'text', placeholder: 'Diagnosis' },
-          { name: 'room', label: 'Room', type: 'text', placeholder: 'Room Number' }
+          { name: 'room', label: 'Room', type: 'text', placeholder: 'Room Number' },
+          { name: 'notes', label: 'Notes', type: 'text', placeholder: 'Brief clinical notes' }
         ],
         staff: [
           { name: 'name', label: 'Name', type: 'text', placeholder: 'Staff Name' },
@@ -758,7 +930,7 @@
         ],
         reception: [
           { name: 'patientName', label: 'Patient Name', type: 'text', placeholder: 'Jane Doe' },
-          { name: 'doctor', label: 'Doctor', type: 'text', placeholder: 'Dr. Evelyn Reed' },
+          { name: 'doctor', label: 'Doctor', type: 'text', placeholder: 'Dr. Amina Wanjiru' },
           { name: 'time', label: 'Appointment Time', type: 'datetime-local', placeholder: 'Time' },
           { name: 'status', label: 'Status', type: 'select', options: ['Scheduled', 'Checked-in', 'Completed', 'Canceled'] }
         ]
@@ -795,7 +967,7 @@
               placeholder="${field.placeholder}"
               value="${sanitize(value)}"
               step="${field.type === 'number' ? '0.01' : ''}"
-              required
+              required="${field.name === 'notes' ? '' : 'required'}"
               class="mt-1 block w-full rounded-lg border border-slate-300 text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           `;
@@ -814,9 +986,11 @@
 
     function createCrudSection(entity, title, data) {
       const headers = getHeaders(entity);
-
       const dataKeys = Object.keys(data[0] || {});
-      const filteredKeys = dataKeys.filter(key => key !== 'role' && key !== 'createdAt');
+      const filteredKeys = dataKeys.filter(key =>
+        key !== 'role' && key !== 'createdAt' && key !== 'notes' && key !== 'allergies' &&
+        key !== 'nhifNumber' && key !== 'nextOfKin' && key !== 'lastVisit'
+      );
 
       const rows = data.map(item => {
         const cells = filteredKeys.map(key => {
@@ -829,7 +1003,7 @@
             value = `KES ${Number(value || 0).toLocaleString('en-KE')}`;
           }
           return `
-            <td class="px-3 py-2 whitespace-nowrap text-[0.75rem] text-slate-700">
+            <td class="px-2 py-2 whitespace-normal break-words text-[0.75rem] text-slate-700">
               ${value !== undefined ? value : ''}
             </td>
           `;
@@ -838,10 +1012,16 @@
         return `
           <tr class="border-b last:border-0 hover:bg-slate-50">
             ${cells}
-            <td class="px-3 py-2 whitespace-nowrap text-[0.7rem] font-medium text-right">
+            <td class="px-2 py-2 whitespace-nowrap text-[0.7rem] font-medium text-right space-x-1">
+              <button
+                onclick="openDetail('${entity}', ${item.id})"
+                class="text-emerald-600 hover:text-emerald-800"
+              >
+                View
+              </button>
               <button
                 onclick="openModal('${entity}', ${item.id}, 'edit')"
-                class="text-sky-600 hover:text-sky-800 mr-2"
+                class="text-sky-600 hover:text-sky-800"
               >
                 Edit
               </button>
@@ -862,20 +1042,21 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-900">${title}</h2>
               <p class="text-[0.7rem] text-slate-500">
-                Manage ${title.toLowerCase()} records (simulated via in-memory data on the frontend).
+                Click <span class="font-semibold">View</span> on any row to open a detailed profile.
               </p>
             </div>
           </div>
-          <div class="mb-5 overflow-x-auto rounded-xl border border-slate-100 max-h-[360px]">
-            <table class="min-w-full divide-y divide-slate-200">
+          <!-- Simple table without horizontal scroll; text wraps inside the cells -->
+          <div class="mb-5 rounded-xl border border-slate-100 max-h-[360px] overflow-y-auto">
+            <table class="min-w-full divide-y divide-slate-200 table-fixed">
               <thead class="bg-slate-50">
                 <tr>
                   ${headers.map(h => `
-                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">
+                    <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">
                       ${h}
                     </th>
                   `).join('')}
-                  <th class="px-3 py-2 text-right text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th class="px-2 py-2 text-right text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">
                     Actions
                   </th>
                 </tr>
@@ -883,7 +1064,7 @@
               <tbody class="bg-white divide-y divide-slate-100">
                 ${
                   rows ||
-                  `<tr><td colspan="${headers.length + 1}" class="px-3 py-4 text-center text-[0.75rem] text-slate-500">
+                  `<tr><td colspan="${headers.length + 1}" class="px-2 py-4 text-center text-[0.75rem] text-slate-500">
                     No records found.
                   </td></tr>`
                 }
@@ -937,8 +1118,205 @@
         data.role = entity.charAt(0).toUpperCase() + entity.slice(1);
       }
 
+      if (!data.createdAt) {
+        data.createdAt = new Date().toISOString();
+      }
+
       saveRecord(entity, data, method);
     }
+
+    /****************************************************
+     * DETAIL MODAL (VIEW ACTION)
+     ****************************************************/
+    function openDetail(entity, id) {
+      let record;
+      if (entity === 'doctor' || entity === 'nurse') {
+        record = MOCK_DATA.staff.find(r => r.id === id);
+      } else {
+        record = (MOCK_DATA[entity] || []).find(r => r.id === id);
+      }
+      if (!record) {
+        showMessage(`Record #${id} not found in ${entity}.`, 'error');
+        return;
+      }
+
+      const modal = document.getElementById('detail-modal');
+      const title = document.getElementById('detail-title');
+      const subtitle = document.getElementById('detail-subtitle');
+      const body = document.getElementById('detail-body');
+
+      // Different layouts for patient vs others
+      if (entity === 'patients') {
+        title.textContent = `Patient Profile – ${record.name}`;
+        subtitle.textContent = `ID #${record.id} • Room ${record.room || 'N/A'}`;
+
+        body.innerHTML = `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p class="text-[0.7rem] text-slate-500">Age</p>
+              <p class="text-sm font-medium text-slate-900">${record.age}</p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-slate-500">Primary Condition</p>
+              <p class="text-sm font-medium text-slate-900">${sanitize(record.condition || '')}</p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-slate-500">NHIF Number</p>
+              <p class="text-sm text-slate-900">${sanitize(record.nhifNumber || 'Not captured')}</p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-slate-500">Next of Kin</p>
+              <p class="text-sm text-slate-900">${sanitize(record.nextOfKin || 'Not captured')}</p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-slate-500">Allergies</p>
+              <p class="text-sm text-slate-900">${sanitize(record.allergies || 'None reported')}</p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-slate-500">Last Visit</p>
+              <p class="text-sm text-slate-900">${record.lastVisit || 'Recent admission'}</p>
+            </div>
+          </div>
+          <div class="mt-4">
+            <p class="text-[0.7rem] font-semibold text-slate-700 mb-1">Clinical Notes</p>
+            <p class="text-sm text-slate-800 bg-slate-50 border border-slate-100 rounded-lg p-3">
+              ${sanitize(record.notes || 'No notes recorded for this patient yet.')}
+            </p>
+          </div>
+          <div class="mt-4">
+            <p class="text-[0.7rem] font-semibold text-slate-700 mb-1">OOP Mapping (for explanation)</p>
+            <ul class="list-disc pl-5 text-[0.75rem] text-slate-700 space-y-1">
+              <li><strong>Patient</strong> is a <em>class</em> with properties like name, age, condition, room, notes.</li>
+              <li>Each row in the table represents a <em>Patient object</em> with its own state.</li>
+              <li>When you click <em>View</em>, we pass the <code>id</code> into a function that finds that specific object in our list.</li>
+              <li>This popup shows the full state of that object (all its properties) in a more user-friendly way.</li>
+            </ul>
+          </div>
+        `;
+      } else {
+        title.textContent = `${entity.charAt(0).toUpperCase() + entity.slice(1)} Record #${record.id}`;
+        subtitle.textContent = 'Detailed view of the selected item.';
+
+        const entries = Object.entries(record)
+          .filter(([key]) => key !== 'createdAt')
+          .map(([key, value]) => `
+            <div>
+              <p class="text-[0.7rem] text-slate-500">${key}</p>
+              <p class="text-sm text-slate-900">${sanitize(String(value))}</p>
+            </div>
+          `).join('');
+
+        body.innerHTML = `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${entries}
+          </div>
+        `;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDetailModal() {
+      const modal = document.getElementById('detail-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    /****************************************************
+     * MODAL FOR EDIT / DELETE
+     ****************************************************/
+    let currentAction = {};
+
+    function openModal(entity, id, action) {
+      const collection =
+        entity === 'doctor' || entity === 'nurse'
+          ? MOCK_DATA.staff
+          : (MOCK_DATA[entity] || []);
+      const record = collection.find(r => r.id === id);
+
+      if (!record) {
+        showMessage(`Record #${id} not found in ${entity}.`, 'error');
+        return;
+      }
+
+      currentAction = { entity, id, action };
+
+      const modal = document.getElementById('action-modal');
+      const title = document.getElementById('modal-title');
+      const message = document.getElementById('modal-message');
+      const confirmBtn = document.getElementById('modal-confirm');
+      const formWrapper = document.getElementById('modal-form-wrapper');
+
+      formWrapper.innerHTML = '';
+
+      if (action === 'delete') {
+        title.textContent = 'Confirm Deletion';
+        message.innerHTML = `
+          Are you sure you want to delete
+          <strong>${sanitize(record.name || record.drugName || record.service || record.patientName || '')}</strong>
+          (ID: ${id})?
+        `;
+        confirmBtn.textContent = 'Delete';
+        confirmBtn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
+        confirmBtn.classList.add('bg-rose-600', 'hover:bg-rose-700');
+      } else if (action === 'edit') {
+        title.textContent = `Edit Record #${id}`;
+        message.textContent = 'Update fields using the form below then confirm.';
+        confirmBtn.textContent = 'Save Changes';
+        confirmBtn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+        confirmBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
+
+        formWrapper.innerHTML = `
+          <form id="modal-edit-form" onsubmit="event.preventDefault(); submitEditForm('${entity}');" class="space-y-3 mt-3">
+            ${generateFormFields(entity, record)}
+          </form>
+        `;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('action-modal');
+      const formWrapper = document.getElementById('modal-form-wrapper');
+      formWrapper.innerHTML = '';
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      currentAction = {};
+    }
+
+    function submitEditForm(entity) {
+      const form = document.getElementById('modal-edit-form');
+      const formData = new FormData(form);
+      const data = {};
+      for (const [key, value] of formData.entries()) {
+        const input = form.querySelector(`[name="${key}"]`);
+        if (key === 'id') {
+          data[key] = parseInt(value, 10);
+        } else if (input && input.type === 'number' && key !== 'phone') {
+          data[key] = parseFloat(value);
+        } else {
+          data[key] = value;
+        }
+      }
+      if (entity === 'doctor' || entity === 'nurse') {
+        data.role = entity.charAt(0).toUpperCase() + entity.slice(1);
+      }
+      saveRecord(entity, data, 'PUT');
+      closeModal();
+    }
+
+    // Attach confirm button handler
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('modal-confirm').addEventListener('click', () => {
+        if (currentAction.action === 'delete') {
+          deleteRecord(currentAction.entity, currentAction.id);
+          closeModal();
+        }
+      });
+    });
 
     /****************************************************
      * ACTIVITY LOGS SECTION
@@ -950,13 +1328,13 @@
         const date = new Date(log.timestamp);
         return `
           <tr class="border-b last:border-0 hover:bg-slate-50">
-            <td class="px-3 py-2 text-[0.7rem] text-slate-500 whitespace-nowrap">
+            <td class="px-2 py-2 text-[0.7rem] text-slate-500 whitespace-nowrap">
               ${date.toLocaleString()}
             </td>
-            <td class="px-3 py-2 text-[0.7rem] text-slate-700">${log.entity}</td>
-            <td class="px-3 py-2 text-[0.7rem] text-slate-700">${log.action}</td>
-            <td class="px-3 py-2 text-[0.7rem] text-slate-600">${sanitize(log.details || '')}</td>
-            <td class="px-3 py-2 text-[0.7rem] text-slate-600">${log.actor || 'System'}</td>
+            <td class="px-2 py-2 text-[0.7rem] text-slate-700">${log.entity}</td>
+            <td class="px-2 py-2 text-[0.7rem] text-slate-700">${log.action}</td>
+            <td class="px-2 py-2 text-[0.7rem] text-slate-600 break-words">${sanitize(log.details || '')}</td>
+            <td class="px-2 py-2 text-[0.7rem] text-slate-600">${log.actor || 'System'}</td>
           </tr>
         `;
       }).join('');
@@ -967,58 +1345,63 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-900">Activity Logs</h2>
               <p class="text-[0.7rem] text-slate-500">
-                Last 100 actions recorded across patients, appointments, billing and pharmacy.
+                Last 100 actions across patients, appointments, billing and pharmacy (simulated).
               </p>
             </div>
           </div>
-          <div class="overflow-x-auto rounded-xl border border-slate-100 max-h-[420px]">
-            <table class="min-w-full divide-y divide-slate-200">
+          <div class="rounded-xl border border-slate-100 max-h-[420px] overflow-y-auto">
+            <table class="min-w-full divide-y divide-slate-200 table-fixed">
               <thead class="bg-slate-50">
                 <tr>
-                  <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Timestamp</th>
-                  <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Entity</th>
-                  <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Action</th>
-                  <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Details</th>
-                  <th class="px-3 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Actor</th>
+                  <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Timestamp</th>
+                  <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Entity</th>
+                  <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Action</th>
+                  <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Details</th>
+                  <th class="px-2 py-2 text-left text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wide">Actor</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-slate-100">
                 ${
                   rows ||
-                  `<tr><td colspan="5" class="px-3 py-4 text-center text-[0.75rem] text-slate-500">
+                  `<tr><td colspan="5" class="px-2 py-4 text-center text-[0.75rem] text-slate-500">
                     No activity logs recorded yet.
                   </td></tr>`
                 }
               </tbody>
             </table>
           </div>
-          <p class="mt-3 text-[0.7rem] text-slate-500">
-            Future work: connect this to the real Spring Boot backend and enable CSV export for audits.
-          </p>
         </section>
       `;
     }
 
     /****************************************************
-     * BACKEND CODE VIEWER (JAVA + COLLABORATIVE MODULES)
+     * BACKEND CODE VIEWER (JAVA + OOP COMMENTS)
      ****************************************************/
     function createBackendSection() {
-      // LANGUAGE MARKER: JAVA CODE (SPRING BOOT) AS TEXT
-      // OOP MARKERS (IN COMMENTS INSIDE THE STRINGS):
-      //  - ENCAPSULATION: private fields + getters/setters
-      //  - INHERITANCE: BaseEntity superclass
-      //  - ABSTRACTION: abstract BaseEntity + interface layers
-      //  - POLYMORPHISM: repositories/controllers operating on BaseEntity types
-
+      /*
+       * NOTE:
+       *  - Below strings show Java code with comments explaining
+       *    Encapsulation, Inheritance, Abstraction and Polymorphism.
+       *  - These are "documentation-level" snippets for your report.
+       */
       const javaCodeMap = {
-        'BaseEntity.java (Shared, Group Lead)': `
+        'BaseEntity.java (Core – Abstraction + Inheritance)': `
 /*
  * MODULE: CORE DOMAIN
  * AUTHOR: Group 5 (Team Lead)
  *
- * OOP – ABSTRACTION & INHERITANCE:
- *  - Abstract BaseEntity used by all other entities.
- *  - Common id + timestamps are inherited.
+ * ABSTRACTION:
+ *   - BaseEntity is declared as an abstract class. You never create a
+ *     "BaseEntity" object directly; instead, other concrete entities
+ *     (Patient, Staff, Billing, etc.) extend it.
+ *
+ * INHERITANCE:
+ *   - Shared fields (id, createdAt, updatedAt) live here and are
+ *     inherited by all subclasses to avoid duplication.
+ *
+ * ENCAPSULATION:
+ *   - Fields are protected / private and exposed via getters/setters,
+ *     hiding implementation details from the rest of the system.
  */
 
 package com.usiu.hms.core;
@@ -1028,28 +1411,38 @@ import java.time.LocalDateTime;
 
 @MappedSuperclass
 public abstract class BaseEntity {
+
+    // ENCAPSULATED FIELDS – not directly modified from outside
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    protected Long id; // ENCAPSULATION: protected, accessed via getters/setters
+    protected Long id;
 
     protected LocalDateTime createdAt = LocalDateTime.now();
     protected LocalDateTime updatedAt = LocalDateTime.now();
 
+    // PUBLIC GETTERS/SETTERS – controlled access
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
         `,
-        'Patient.java (Patient Module – Dev A)': `
+        'Patient.java (Encapsulation + Inheritance)': `
 /*
  * MODULE: PATIENT DOMAIN
  * AUTHOR: Dev A (Group 5 – Patient & Reception)
  *
- * OOP – ENCAPSULATION: private fields + getters/setters.
- * INHERITANCE: extends BaseEntity.
+ * INHERITANCE:
+ *   - "extends BaseEntity" means Patient automatically has id, createdAt,
+ *     updatedAt from BaseEntity.
+ *
+ * ENCAPSULATION:
+ *   - All fields are private and accessed via getters/setters.
+ *   - This hides direct data access and allows validation if needed.
  */
 
 package com.usiu.hms.patient;
@@ -1059,25 +1452,38 @@ import jakarta.persistence.Entity;
 
 @Entity
 public class Patient extends BaseEntity {
+
+    // PATIENT-SPECIFIC STATE – ENCLOSED INSIDE THE CLASS
     private String name;
     private int age;
     private String condition;
     private String room;
 
+    // GETTERS/SETTERS EXPOSE CONTROLLED ACCESS TO THE FIELDS
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
     public int getAge() { return age; }
     public void setAge(int age) { this.age = age; }
+
     public String getCondition() { return condition; }
     public void setCondition(String condition) { this.condition = condition; }
+
     public String getRoom() { return room; }
     public void setRoom(String room) { this.room = room; }
 }
         `,
-        'Staff.java (Staff Module – Dev B)': `
+        'Staff.java (Inheritance + Encapsulation)': `
 /*
  * MODULE: STAFF DOMAIN (Doctor/Nurse/Admin)
  * AUTHOR: Dev B (Group 5 – HR & Staff)
+ *
+ * INHERITANCE:
+ *   - Staff extends BaseEntity, so it gets id, createdAt, updatedAt.
+ *
+ * ENCAPSULATION:
+ *   - Enum Role and fields (name, role, phone, department) are
+ *     private and exposed through getters/setters only.
  */
 
 package com.usiu.hms.staff;
@@ -1087,7 +1493,9 @@ import jakarta.persistence.Entity;
 
 @Entity
 public class Staff extends BaseEntity {
-    public enum Role { DOCTOR, NURSE, ADMIN } // SIMPLE ENUM
+
+    // SIMPLE ENUM TYPE USED INSIDE THE CLASS
+    public enum Role { DOCTOR, NURSE, ADMIN }
 
     private String name;
     private Role role;
@@ -1096,18 +1504,25 @@ public class Staff extends BaseEntity {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
 }
         `,
-        'PharmacyItem.java (Pharmacy Module – Dev C)': `
+        'PharmacyItem.java (Encapsulation)': `
 /*
  * MODULE: PHARMACY
  * AUTHOR: Dev C (Group 5 – Pharmacy & Inventory)
+ *
+ * ENCAPSULATION:
+ *   - drugName, stock, cost, supplier are all private.
+ *   - External code interacts only via methods (get/set).
  */
 
 package com.usiu.hms.pharmacy;
@@ -1124,20 +1539,30 @@ public class PharmacyItem extends BaseEntity {
 
     public String getDrugName() { return drugName; }
     public void setDrugName(String drugName) { this.drugName = drugName; }
+
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+
     public double getCost() { return cost; }
     public void setCost(double cost) { this.cost = cost; }
+
     public String getSupplier() { return supplier; }
     public void setSupplier(String supplier) { this.supplier = supplier; }
 }
         `,
-        'Billing.java (Billing Module – Dev D)': `
+        'Billing.java (Encapsulation + Future Polymorphism)': `
 /*
  * MODULE: BILLING
  * AUTHOR: Dev D (Group 5 – Billing & Finance)
  *
- * OOP – ENCAPSULATION: private fields, only accessible via getters/setters.
+ * ENCAPSULATION:
+ *   - patientId, service, amount, status are private.
+ *   - Only controlled access via methods.
+ *
+ * POLYMORPHISM (POTENTIAL):
+ *   - You could later have different Billing types (e.g. InsuranceBilling,
+ *     CashBilling) which extend a common abstract class to override
+ *     how amount is calculated.
  */
 
 package com.usiu.hms.billing;
@@ -1154,15 +1579,18 @@ public class Billing extends BaseEntity {
 
     public Long getPatientId() { return patientId; }
     public void setPatientId(Long patientId) { this.patientId = patientId; }
+
     public String getService() { return service; }
     public void setService(String service) { this.service = service; }
+
     public double getAmount() { return amount; }
     public void setAmount(double amount) { this.amount = amount; }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 }
         `,
-        'Reception.java (Reception Module – Dev A)': `
+        'Reception.java (Encapsulation)': `
 /*
  * MODULE: RECEPTION / APPOINTMENTS
  * AUTHOR: Dev A (Group 5 – Patient & Reception)
@@ -1182,20 +1610,27 @@ public class Reception extends BaseEntity {
 
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
+
     public String getDoctor() { return doctor; }
     public void setDoctor(String doctor) { this.doctor = doctor; }
+
     public String getTime() { return time; }
     public void setTime(String time) { this.time = time; }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 }
         `,
-        'PatientController.java (REST – Dev A)': `
+        'PatientController.java (Polymorphism via Spring MVC)': `
 /*
  * REST CONTROLLER: PATIENT
  * AUTHOR: Dev A
  *
- * POLYMORPHISM: using the same REST style as other controllers (common pattern).
+ * POLYMORPHISM (FRAMEWORK LEVEL):
+ *   - Spring MVC calls different handler methods (@GetMapping, @PostMapping,
+ *     @PutMapping, @DeleteMapping) depending on the HTTP request.
+ *   - The controller class acts like an "object" with multiple behaviours
+ *     responding to the same URL using different HTTP verbs.
  */
 
 package com.usiu.hms.patient;
@@ -1209,6 +1644,7 @@ public class PatientController {
 
     private final PatientRepository repo;
 
+    // CONSTRUCTOR INJECTION – ABSTRACTION OF DATA ACCESS BEHIND REPOSITORY
     public PatientController(PatientRepository repo) {
         this.repo = repo;
     }
@@ -1242,12 +1678,21 @@ public class PatientController {
     }
 }
         `,
-        'BillingController.java (REST – Dev D)': `
+        'BillingController.java (Polymorphism + Layered Abstraction)': `
 /*
- * REST CONTROLLER: BILLING / INVOICES
+ * REST CONTROLLER: BILLING
  * AUTHOR: Dev D
  *
- * This exposes endpoints for the billing KPIs used on the dashboard.
+ * ABSTRACTION:
+ *   - Controller does not know how data is stored; it only uses
+ *     BillingRepository (an interface) to perform operations.
+ *
+ * POLYMORPHISM:
+ *   - BillingRepository is a Spring Data interface. At runtime,
+ *     Spring injects a concrete implementation that still behaves
+ *     like the same type.
+ *   - Different endpoints (GET, POST, PUT, DELETE) show behavioural
+ *     polymorphism based on HTTP methods.
  */
 
 package com.usiu.hms.billing;
@@ -1290,10 +1735,14 @@ public class BillingController {
     }
 }
         `,
-        'HospitalApplication.java (Bootstrap – Group Lead)': `
+        'HospitalApplication.java (Entry Point)': `
 /*
  * SPRING BOOT ENTRY POINT
  * AUTHOR: Group Lead
+ *
+ * When run, this boots up the embedded server, scans for all
+ * @Entity, @Repository and @RestController classes, and wires
+ * everything together.
  */
 
 package com.usiu.hms;
@@ -1303,6 +1752,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class HospitalApplication {
+
     public static void main(String[] args) {
         SpringApplication.run(HospitalApplication.class, args);
     }
@@ -1332,10 +1782,10 @@ public class HospitalApplication {
 
       return `
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-          <h2 class="text-lg font-semibold text-slate-900 mb-2">Spring Boot Backend – Collaborative Java Code</h2>
+          <h2 class="text-lg font-semibold text-slate-900 mb-2">Spring Boot Backend – OOP Annotations</h2>
           <p class="text-[0.7rem] text-slate-500 mb-4">
-            The Java layer is split by module so you can clearly see how different members of Group 5 contributed
-            to Patients, Staff, Pharmacy, Billing, and Reception.
+            Comments in these files explicitly highlight where Encapsulation, Inheritance, Abstraction and Polymorphism
+            are being used, so you can explain them cleanly during presentations or exams.
           </p>
           <div class="mb-3 border-b border-slate-200">
             <ul id="backend-tabs" class="flex flex-wrap -mb-px text-xs">
@@ -1361,87 +1811,6 @@ public class HospitalApplication {
       }
       document.getElementById(tabId).classList.add('active');
       evt.currentTarget.classList.add('text-sky-600', 'border-sky-600');
-    }
-
-    /****************************************************
-     * MODAL FOR EDIT / DELETE
-     ****************************************************/
-    let currentAction = {};
-
-    function openModal(entity, id, action) {
-      const record = (entity === 'doctor' || entity === 'nurse')
-        ? MOCK_DATA.staff.find(r => r.id === id)
-        : (MOCK_DATA[entity] || []).find(r => r.id === id);
-
-      if (!record) {
-        showMessage(`Record #${id} not found in ${entity}.`, 'error');
-        return;
-      }
-
-      currentAction = { entity, id, action };
-
-      const modal = document.getElementById('action-modal');
-      const title = document.getElementById('modal-title');
-      const message = document.getElementById('modal-message');
-      const confirmBtn = document.getElementById('modal-confirm');
-
-      if (action === 'delete') {
-        title.textContent = 'Confirm Deletion';
-        message.innerHTML = `
-          Are you sure you want to delete
-          <strong>${sanitize(record.name || record.drugName || record.service || record.patientName || '')}</strong>
-          (ID: ${id})?
-        `;
-        confirmBtn.textContent = 'Delete';
-        confirmBtn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
-        confirmBtn.classList.add('bg-rose-600', 'hover:bg-rose-700');
-      } else {
-        title.textContent = `Edit Record #${id}`;
-        message.textContent = 'Update fields using the form below then confirm.';
-        confirmBtn.textContent = 'Save Changes';
-        confirmBtn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
-        confirmBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
-
-        const formWrapper = document.getElementById('modal-form-wrapper');
-        formWrapper.innerHTML = `
-          <form id="modal-edit-form" onsubmit="event.preventDefault(); submitEditForm('${entity}');" class="space-y-3 mt-3">
-            ${generateFormFields(entity, record)}
-          </form>
-        `;
-      }
-
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeModal() {
-      const modal = document.getElementById('action-modal');
-      const formWrapper = document.getElementById('modal-form-wrapper');
-      formWrapper.innerHTML = '';
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      currentAction = {};
-    }
-
-    function submitEditForm(entity) {
-      const form = document.getElementById('modal-edit-form');
-      const formData = new FormData(form);
-      const data = {};
-      for (const [key, value] of formData.entries()) {
-        const input = form.querySelector(`[name="${key}"]`);
-        if (key === 'id') {
-          data[key] = parseInt(value, 10);
-        } else if (input && input.type === 'number' && key !== 'phone') {
-          data[key] = parseFloat(value);
-        } else {
-          data[key] = value;
-        }
-      }
-      if (entity === 'doctor' || entity === 'nurse') {
-        data.role = entity.charAt(0).toUpperCase() + entity.slice(1);
-      }
-      saveRecord(entity, data, 'PUT');
-      closeModal();
     }
 
     /****************************************************
@@ -1471,11 +1840,8 @@ public class HospitalApplication {
         container.innerHTML = `
           <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <h2 class="text-lg font-semibold text-slate-900 mb-1">Quick Snapshot</h2>
-            <p class="text-[0.7rem] text-slate-500 mb-1">
-              Use this page as your "at a glance" view before diving into individual modules.
-            </p>
             <p class="text-[0.7rem] text-slate-500">
-              Metrics above are computed from simulated data spanning the last 18 months.
+              Use this as your "at a glance" page before drilling down into Patients, Staff, Pharmacy, Billing or Reception.
             </p>
           </section>
         `;
@@ -1548,46 +1914,6 @@ public class HospitalApplication {
         setAuthState(true);
       } else {
         setAuthState(false);
-      }
-    });
-  </script>
-
-  <!-- MODAL HTML (kept at bottom so JS can hook easily) -->
-  <div
-    id="action-modal"
-    class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-40"
-  >
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5">
-      <h3 id="modal-title" class="text-lg font-semibold text-slate-900 mb-2">Confirm Action</h3>
-      <p id="modal-message" class="text-sm text-slate-600 mb-3"></p>
-      <div id="modal-form-wrapper"></div>
-      <div class="flex justify-end gap-2 mt-4">
-        <button
-          id="modal-cancel"
-          class="px-4 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
-          onclick="closeModal()"
-        >
-          Cancel
-        </button>
-        <button
-          id="modal-confirm"
-          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-        >
-          Confirm
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Attach modal confirm click (separate so it can call deleteRecord)
-    document.getElementById('modal-confirm').addEventListener('click', () => {
-      if (currentAction.action === 'delete') {
-        deleteRecord(currentAction.entity, currentAction.id);
-      }
-      // For edit, the actual save is handled by submitEditForm
-      if (currentAction.action === 'delete') {
-        closeModal();
       }
     });
   </script>
