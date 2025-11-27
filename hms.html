@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hospital Management System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for dashboard visuals -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+    /* Simple spinner */
+    .loader {
+      border-top-color: #2563eb;
+      border-right-color: transparent;
+      border-width: 4px;
+      border-style: solid;
+      border-radius: 9999px;
+      animation: spin 0.8s linear infinite;
+      width: 1.75rem;
+      height: 1.75rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Side detail panel overlay */
+    .detail-overlay {
+      background: rgba(15, 23, 42, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
+
+  <!-- ================= LOGIN OVERLAY ================= -->
+  <div id="login-screen" class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-sky-100 via-white to-emerald-100 z-50">
+    <div class="w-full max-w-md bg-white/90 backdrop-blur shadow-2xl rounded-2xl p-8 border border-sky-100">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white font-semibold">
+          HMS
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Hospital Management System</h1>
+          <p class="text-xs text-slate-500">Admin Portal · USIU-Africa Group 5</p>
+        </div>
+      </div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+          <input id="login-username" type="text"
+                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                 placeholder="admin" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+          <input id="login-password" type="password"
+                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                 placeholder="admin123" required />
+        </div>
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-600 to-emerald-600 text-white text-sm font-semibold py-2.5 shadow-md hover:from-sky-700 hover:to-emerald-700 transition">
+          <span>Login</span>
+        </button>
+      </form>
+
+      <p class="mt-4 text-xs text-slate-500">
+        Demo credentials: <span class="font-semibold text-slate-700">admin / admin123</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= APP SHELL ================= -->
+  <div id="app-shell" class="hidden h-screen overflow-hidden">
+    <div class="flex h-full">
+      <!-- SIDEBAR -->
+      <aside class="w-64 bg-slate-900 text-slate-100 flex flex-col">
+        <div class="px-5 py-4 border-b border-slate-800 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-xs font-bold">
+            HMS
+          </div>
+          <div>
+            <p class="text-sm font-semibold">HMS Admin</p>
+            <p id="sidebar-user" class="text-[11px] text-slate-400">—</p>
+          </div>
+        </div>
+
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500 px-2 mb-1">Overview</p>
+          <button data-section="overview" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg bg-slate-800 text-sky-300">
+            <span>📊</span><span>Dashboard</span>
+          </button>
+
+          <p class="text-[11px] uppercase tracking-wide text-slate-500 px-2 mt-4 mb-1">Operations</p>
+          <button data-section="patients" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg hover:bg-slate-800 hover:text-sky-200">
+            <span>🧍‍♀️</span><span>Patients</span>
+          </button>
+          <button data-section="staff" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg hover:bg-slate-800 hover:text-sky-200">
+            <span>👩‍⚕️</span><span>Staff</span>
+          </button>
+          <button data-section="pharmacy" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg hover:bg-slate-800 hover:text-sky-200">
+            <span>💊</span><span>Pharmacy</span>
+          </button>
+          <button data-section="billing" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg hover:bg-slate-800 hover:text-sky-200">
+            <span>💰</span><span>Billing</span>
+          </button>
+          <button data-section="reception" class="nav-link w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg hover:bg-slate-800 hover:text-sky-200">
+            <span>📅</span><span>Reception</span>
+          </button>
+        </nav>
+
+        <div class="px-4 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <span>USIU-Africa · Group 5</span>
+          <button id="logout-btn" class="text-emerald-400 hover:text-emerald-300">Logout</button>
+        </div>
+      </aside>
+
+      <!-- MAIN -->
+      <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
+        <!-- TOP BAR -->
+        <header class="h-14 flex items-center justify-between px-6 border-b border-slate-200 bg-white/80 backdrop-blur">
+          <div>
+            <h1 class="text-sm font-semibold text-slate-900">Hospital Management System</h1>
+            <p class="text-[11px] text-slate-500">Admin control panel · Nairobi</p>
+          </div>
+          <div id="topbar-datetime" class="text-[11px] text-slate-500"></div>
+        </header>
+
+        <!-- STATUS TOAST -->
+        <div id="status-message" class="hidden mx-6 mt-3 text-xs rounded-lg border-l-4 px-3 py-2"></div>
+
+        <!-- CONTENT -->
+        <section id="content-container" class="flex-1 overflow-y-auto px-4 pb-6 pt-3">
+          <!-- Filled dynamically -->
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= DETAIL SIDE PANEL ================= -->
+  <div id="detail-overlay" class="fixed inset-0 hidden detail-overlay items-center justify-end z-40">
+    <div class="w-full max-w-md h-full bg-white shadow-2xl flex flex-col">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 id="detail-title" class="text-sm font-semibold text-slate-900">Details</h2>
+        <button id="detail-close" class="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+      </div>
+      <div id="detail-body" class="flex-1 overflow-y-auto p-4 text-sm text-slate-700"></div>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT ================= -->
+  <script>
+    /****************************************************
+     * AUTH MODULE (ENCAPSULATION OF LOGIN STATE)
+     ****************************************************/
+    const DEMO_USER = { username: 'admin', password: 'admin123', displayName: 'System Admin' };
+
+    function saveAuth(user) {
+      localStorage.setItem('hms-auth', JSON.stringify({
+        username: user.username,
+        displayName: user.displayName,
+        ts: Date.now()
+      }));
+    }
+
+    function getAuth() {
+      const raw = localStorage.getItem('hms-auth');
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    function clearAuth() {
+      localStorage.removeItem('hms-auth');
+    }
+
+    function isAuthenticated() {
+      return !!getAuth();
+    }
+
+    function setAuthState(isAuthed) {
+      const loginScreen = document.getElementById('login-screen');
+      const appShell = document.getElementById('app-shell');
+      const sidebarUser = document.getElementById('sidebar-user');
+
+      if (isAuthed) {
+        const auth = getAuth();
+        loginScreen.classList.add('hidden');
+        appShell.classList.remove('hidden');
+        sidebarUser.textContent = auth ? `${auth.displayName} (${auth.username})` : 'Admin';
+        renderOverview();
+        setActiveNav('overview');
+      } else {
+        appShell.classList.add('hidden');
+        loginScreen.classList.remove('hidden');
+        sidebarUser.textContent = '—';
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('login-username').value.trim();
+      const p = document.getElementById('login-password').value.trim();
+      if (u === DEMO_USER.username && p === DEMO_USER.password) {
+        saveAuth(DEMO_USER);
+        showMessage('Login successful. Loading dashboard…', 'success');
+        setAuthState(true);
+      } else {
+        showMessage('Invalid username or password.', 'error');
+      }
+    }
+
+    function handleLogout() {
+      clearAuth();
+      showMessage('You have been logged out.', 'info');
+      setAuthState(false);
+    }
+
+    /****************************************************
+     * SIMPLE UTILITIES
+     ****************************************************/
+    function showMessage(message, type) {
+      const el = document.getElementById('status-message');
+      el.textContent = message;
+      el.className = 'mx-6 mt-3 text-xs rounded-lg border-l-4 px-3 py-2';
+
+      const map = {
+        success: ['bg-emerald-50', 'text-emerald-800', 'border-emerald-400'],
+        error: ['bg-rose-50', 'text-rose-800', 'border-rose-400'],
+        info: ['bg-sky-50', 'text-sky-800', 'border-sky-400']
+      };
+      el.classList.add(...(map[type] || map.info));
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    function setActiveNav(section) {
+      document.querySelectorAll('.nav-link').forEach(btn => {
+        btn.classList.remove('bg-slate-800', 'text-sky-300');
+        btn.classList.add('hover:bg-slate-800', 'hover:text-sky-200');
+        if (btn.dataset.section === section) {
+          btn.classList.add('bg-slate-800', 'text-sky-300');
+        }
+      });
+    }
+
+    function formatCurrency(amount) {
+      return 'KES ' + amount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    /****************************************************
+     * DATA MODEL (MOCK BACKEND – ENCAPSULATION + ABSTRACTION)
+     ****************************************************/
+    // NOTE: This is a frontend-only project, so we simulate a backend using in-memory stores.
+
+    class EntityStore {
+      // OOP: Encapsulation – the internal 'items' array is managed via methods, not exposed directly.
+      constructor(name, initialItems = []) {
+        this.name = name;
+        this.items = [...initialItems];
+        this.nextId = this.items.length ? Math.max(...this.items.map(i => i.id)) + 1 : 1;
+      }
+
+      all() {
+        return [...this.items];
+      }
+
+      add(item) {
+        const newItem = { ...item, id: this.nextId++ };
+        this.items.push(newItem);
+        return newItem;
+      }
+
+      update(id, updates) {
+        const idx = this.items.findIndex(i => i.id === id);
+        if (idx === -1) return null;
+        this.items[idx] = { ...this.items[idx], ...updates };
+        return this.items[idx];
+      }
+
+      remove(id) {
+        const before = this.items.length;
+        this.items = this.items.filter(i => i.id !== id);
+        return this.items.length < before;
+      }
+
+      find(id) {
+        return this.items.find(i => i.id === id) || null;
+      }
+    }
+
+    // Global stores (think of these like "tables" in a DB)
+    const stores = {
+      patients: new EntityStore('patients'),
+      staff: new EntityStore('staff'),
+      pharmacy: new EntityStore('pharmacy'),
+      billing: new EntityStore('billing'),
+      reception: new EntityStore('reception')
+    };
+
+    // History for dashboard charts
+    const billingHistory = []; // { monthLabel, revenue }
+    const admissionHistory = []; // { monthLabel, admissions }
+
+    function seedMockDataWithHistory() {
+      // Patients (Kenyan context, USIU-ish names)
+      stores.patients.items = [
+        { id: 1, name: 'Brian Mwangi', age: 27, condition: 'Malaria', room: 'Ward 3B', notes: 'Responding well to antimalarials. Student at USIU-Africa.' },
+        { id: 2, name: 'Faith Wanjiru', age: 34, condition: 'Pneumonia', room: 'Ward 2A', notes: 'On IV antibiotics. Needs chest physiotherapy twice daily.' },
+        { id: 3, name: 'Kevin Otieno', age: 45, condition: 'Diabetes (Type II)', room: 'Outpatient', notes: 'On routine review. Lifestyle counselling ongoing.' },
+        { id: 4, name: 'Naomi Achieng', age: 6, condition: 'Asthma attack', room: 'Pediatrics', notes: 'Nebulisation every 4 hours. Mother briefed on inhaler use.' },
+        { id: 5, name: 'Amina Abdullahi', age: 53, condition: 'Hypertension', room: 'Ward 1C', notes: 'BP stabilised. Discharge planned in 2 days.' },
+        { id: 6, name: 'Collins Kipkorir', age: 31, condition: 'Fractured Tibia', room: 'Ward 4D', notes: 'Post-surgery. Physiotherapy consult scheduled.' }
+      ];
+      stores.patients.nextId = 7;
+
+      // Staff (doctors, nurses, consultants)
+      stores.staff.items = [
+        { id: 1, name: 'Dr. Evelyn Wambui', role: 'Doctor', department: 'Internal Medicine', phone: '0712 345 678' },
+        { id: 2, name: 'Dr. Alex Chen', role: 'Doctor', department: 'Orthopaedics', phone: '0711 222 333' },
+        { id: 3, name: 'Dr. Priya Shah', role: 'Doctor', department: 'Pediatrics', phone: '0790 555 111' },
+        { id: 4, name: 'Nurse Michael Oduor', role: 'Nurse', department: 'ICU', phone: '0733 444 555' },
+        { id: 5, name: 'Nurse Sarah Nduta', role: 'Nurse', department: 'Ward 3B', phone: '0719 777 888' },
+        { id: 6, name: 'Consultant – Dr. Jean Dupont', role: 'Visiting Consultant', department: 'Cardiology', phone: '+33 6 12 34 56 78' }
+      ];
+      stores.staff.nextId = 7;
+
+      // Pharmacy
+      stores.pharmacy.items = [
+        { id: 1, drugName: 'Paracetamol 500mg', stock: 4200, cost: 5, supplier: 'MediSupplies Kenya' },
+        { id: 2, drugName: 'Amoxicillin 500mg', stock: 880, cost: 45, supplier: 'GlobalMeds' },
+        { id: 3, drugName: 'Salbutamol Inhaler', stock: 320, cost: 650, supplier: 'Nairobi Pharma' },
+        { id: 4, drugName: 'Insulin 10ml', stock: 190, cost: 1200, supplier: 'HealthLife Ltd' }
+      ];
+      stores.pharmacy.nextId = 5;
+
+      // Billing
+      stores.billing.items = [
+        { id: 1, patientId: 1, patientName: 'Brian Mwangi', service: 'Inpatient – Ward 3B (2 days)', amount: 12000, status: 'UNPAID' },
+        { id: 2, patientId: 2, patientName: 'Faith Wanjiru', service: 'Inpatient – Ward 2A (3 days)', amount: 21000, status: 'PAID' },
+        { id: 3, patientId: 3, patientName: 'Kevin Otieno', service: 'Outpatient – Diabetes review', amount: 3500, status: 'PAID' },
+        { id: 4, patientId: 4, patientName: 'Naomi Achieng', service: 'Pediatrics – Emergency', amount: 15000, status: 'UNPAID' },
+        { id: 5, patientId: 5, patientName: 'Amina Abdullahi', service: 'Cardiology consult', amount: 9000, status: 'PAID' }
+      ];
+      stores.billing.nextId = 6;
+
+      // Reception (appointments)
+      stores.reception.items = [
+        { id: 1, patientName: 'Brian Mwangi', doctor: 'Dr. Evelyn Wambui', time: '2025-11-28T09:30', status: 'Checked-in' },
+        { id: 2, patientName: 'New Walk-in – USIU Student', doctor: 'Dr. Priya Shah', time: '2025-11-28T11:00', status: 'Scheduled' },
+        { id: 3, patientName: 'Corporate – Safaricom Staff', doctor: 'Dr. Alex Chen', time: '2025-11-29T10:15', status: 'Scheduled' }
+      ];
+      stores.reception.nextId = 4;
+
+      // 18-month history (lightweight; used for charts)
+      billingHistory.length = 0;
+      admissionHistory.length = 0;
+      const now = new Date();
+      for (let i = 17; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' });
+        const revenue = 800000 + Math.round(Math.random() * 500000);   // KES
+        const admissions = 200 + Math.round(Math.random() * 120);       // patients
+        billingHistory.push({ monthLabel: label, revenue });
+        admissionHistory.push({ monthLabel: label, admissions });
+      }
+    }
+
+    /****************************************************
+     * DASHBOARD RENDERING WITH CHARTS (POLYMORPHISM VIA CONFIG)
+     ****************************************************/
+    let revenueChart, admissionsChart;
+
+    function renderOverview() {
+      const container = document.getElementById('content-container');
+
+      const totalPatients = stores.patients.all().length;
+      const activeInpatients = stores.patients.all().filter(p => p.room !== 'Outpatient').length;
+      const totalStaff = stores.staff.all().length;
+      const unpaidBills = stores.billing.all().filter(b => b.status === 'UNPAID');
+      const unpaidTotal = unpaidBills.reduce((sum, b) => sum + b.amount, 0);
+      const stockTotal = stores.pharmacy.all().reduce((sum, d) => sum + d.stock, 0);
+
+      container.innerHTML = `
+        <div class="py-3 space-y-6">
+          <!-- KPI CARDS -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl shadow-sm border border-sky-50 p-4 flex flex-col gap-1">
+              <p class="text-xs text-slate-500">Total Patients (current)</p>
+              <p class="text-2xl font-semibold text-slate-900">${totalPatients}</p>
+              <p class="text-[11px] text-emerald-600">Inpatients: ${activeInpatients}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-emerald-50 p-4 flex flex-col gap-1">
+              <p class="text-xs text-slate-500">Clinical Staff</p>
+              <p class="text-2xl font-semibold text-slate-900">${totalStaff}</p>
+              <p class="text-[11px] text-sky-600">Doctors & Nurses on system</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-amber-50 p-4 flex flex-col gap-1">
+              <p class="text-xs text-slate-500">Unpaid Bills</p>
+              <p class="text-lg font-semibold text-amber-700">${unpaidBills.length} cases</p>
+              <p class="text-[11px] text-amber-600 font-medium">${formatCurrency(unpaidTotal)}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-1">
+              <p class="text-xs text-slate-500">Pharmacy Stock</p>
+              <p class="text-2xl font-semibold text-slate-900">${stockTotal}</p>
+              <p class="text-[11px] text-slate-500">Units across ${stores.pharmacy.all().length} medicines</p>
+            </div>
+          </div>
+
+          <!-- CHARTS -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 lg:col-span-2">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-slate-800">18-month Revenue Trend</p>
+                <p class="text-[11px] text-slate-400">In KES (billed)</p>
+              </div>
+              <canvas id="revenue-chart" class="max-h-64"></canvas>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-slate-800">Monthly Admissions</p>
+                <p class="text-[11px] text-slate-400">Headcount</p>
+              </div>
+              <canvas id="admissions-chart" class="max-h-64"></canvas>
+            </div>
+          </div>
+
+          <!-- QUICK LISTS -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-slate-800">Today’s Appointments</p>
+              </div>
+              <div class="divide-y divide-slate-100">
+                ${stores.reception.all().map(r => `
+                  <button class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 px-2 rounded-md"
+                          onclick="openDetail('reception', ${r.id})">
+                    <div>
+                      <p class="text-xs font-medium text-slate-800">${r.patientName}</p>
+                      <p class="text-[11px] text-slate-500">${r.doctor} · ${new Date(r.time).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <span class="text-[11px] px-2 py-0.5 rounded-full ${
+                      r.status === 'Checked-in'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-sky-50 text-sky-700'
+                    }">${r.status}</span>
+                  </button>
+                `).join('') || '<p class="text-xs text-slate-400">No appointments.</p>'}
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-slate-800">Unpaid Billing Cases</p>
+              </div>
+              <div class="divide-y divide-slate-100">
+                ${unpaidBills.map(b => `
+                  <button class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 px-2 rounded-md"
+                          onclick="openDetail('billing', ${b.id})">
+                    <div>
+                      <p class="text-xs font-medium text-slate-800">${b.patientName}</p>
+                      <p class="text-[11px] text-slate-500">${b.service}</p>
+                    </div>
+                    <span class="text-[11px] font-semibold text-amber-700">${formatCurrency(b.amount)}</span>
+                  </button>
+                `).join('') || '<p class="text-xs text-slate-400">No unpaid bills.</p>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Charts
+      const revenueCtx = document.getElementById('revenue-chart').getContext('2d');
+      const admissionsCtx = document.getElementById('admissions-chart').getContext('2d');
+
+      if (revenueChart) revenueChart.destroy();
+      if (admissionsChart) admissionsChart.destroy();
+
+      revenueChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+          labels: billingHistory.map(h => h.monthLabel),
+          datasets: [{
+            label: 'Revenue',
+            data: billingHistory.map(h => h.revenue),
+            borderColor: '#0284c7',
+            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { ticks: { callback: v => (v / 1000) + 'k' } } }
+        }
+      });
+
+      admissionsChart = new Chart(admissionsCtx, {
+        type: 'bar',
+        data: {
+          labels: admissionHistory.map(h => h.monthLabel),
+          datasets: [{
+            label: 'Admissions',
+            data: admissionHistory.map(h => h.admissions),
+            backgroundColor: '#10b981'
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    /****************************************************
+     * CRUD SECTION RENDERERS
+     ****************************************************/
+    function renderTableSection(entity) {
+      const container = document.getElementById('content-container');
+      const data = stores[entity].all();
+
+      const meta = {
+        patients: {
+          title: 'Patients',
+          fields: [
+            { key: 'id', label: 'ID' },
+            { key: 'name', label: 'Name' },
+            { key: 'age', label: 'Age' },
+            { key: 'condition', label: 'Condition' },
+            { key: 'room', label: 'Room' }
+          ]
+        },
+        staff: {
+          title: 'Staff',
+          fields: [
+            { key: 'id', label: 'ID' },
+            { key: 'name', label: 'Name' },
+            { key: 'role', label: 'Role' },
+            { key: 'department', label: 'Department' },
+            { key: 'phone', label: 'Phone' }
+          ]
+        },
+        pharmacy: {
+          title: 'Pharmacy Inventory',
+          fields: [
+            { key: 'id', label: 'ID' },
+            { key: 'drugName', label: 'Drug' },
+            { key: 'stock', label: 'Stock' },
+            { key: 'cost', label: 'Cost (KES)' },
+            { key: 'supplier', label: 'Supplier' }
+          ]
+        },
+        billing: {
+          title: 'Billing',
+          fields: [
+            { key: 'id', label: 'ID' },
+            { key: 'patientName', label: 'Patient' },
+            { key: 'service', label: 'Service' },
+            { key: 'amount', label: 'Amount' },
+            { key: 'status', label: 'Status' }
+          ]
+        },
+        reception: {
+          title: 'Reception & Appointments',
+          fields: [
+            { key: 'id', label: 'ID' },
+            { key: 'patientName', label: 'Patient' },
+            { key: 'doctor', label: 'Doctor' },
+            { key: 'time', label: 'Time' },
+            { key: 'status', label: 'Status' }
+          ]
+        }
+      }[entity];
+
+      container.innerHTML = `
+        <div class="py-3 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900">${meta.title}</h2>
+              <p class="text-[11px] text-slate-500">Tap any row to open a detailed profile.</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50 text-slate-500">
+                  <tr>
+                    ${meta.fields.map(f => `<th class="px-4 py-2 text-left font-medium">${f.label}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${data.map(row => `
+                    <tr class="hover:bg-slate-50 cursor-pointer" onclick="openDetail('${entity}', ${row.id})">
+                      ${meta.fields.map(f => {
+                        let value = row[f.key];
+                        if (f.key === 'amount') value = formatCurrency(value);
+                        if (f.key === 'time') {
+                          value = new Date(value).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' });
+                        }
+                        if (f.key === 'status') {
+                          const cls = (value === 'PAID' || value === 'Checked-in' || value === 'Completed')
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-700';
+                          value = `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}">${value}</span>`;
+                        }
+                        return `<td class="px-4 py-2 text-slate-700">${value ?? ''}</td>`;
+                      }).join('')}
+                    </tr>
+                  `).join('') || `
+                    <tr><td colspan="${meta.fields.length}" class="px-4 py-4 text-center text-slate-400">No records yet.</td></tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /****************************************************
+     * DETAIL PANEL (PER-RECORD VIEW)
+     ****************************************************/
+    function openDetail(entity, id) {
+      const rec = stores[entity].find(id);
+      if (!rec) {
+        showMessage('Record not found.', 'error');
+        return;
+      }
+      const titleEl = document.getElementById('detail-title');
+      const bodyEl = document.getElementById('detail-body');
+      const overlay = document.getElementById('detail-overlay');
+
+      titleEl.textContent = `${entity.charAt(0).toUpperCase() + entity.slice(1)} Details`;
+
+      // Simple per-entity detail layout
+      let html = '';
+      if (entity === 'patients') {
+        html = `
+          <div class="space-y-3">
+            <p class="text-xs font-semibold text-sky-700">Patient Profile</p>
+            <div class="bg-slate-50 rounded-lg p-3 space-y-1">
+              <p><span class="font-semibold">Name:</span> ${rec.name}</p>
+              <p><span class="font-semibold">Age:</span> ${rec.age}</p>
+              <p><span class="font-semibold">Condition:</span> ${rec.condition}</p>
+              <p><span class="font-semibold">Room/Ward:</span> ${rec.room}</p>
+            </div>
+            <div class="bg-white border border-slate-100 rounded-lg p-3">
+              <p class="text-xs font-semibold text-slate-700 mb-1">Clinical Notes</p>
+              <p class="text-xs text-slate-600 whitespace-pre-line">${rec.notes || 'No notes recorded yet.'}</p>
+            </div>
+            <div class="bg-white border border-slate-100 rounded-lg p-3">
+              <p class="text-xs font-semibold text-slate-700 mb-1">Example OOP Interpretation</p>
+              <p class="text-[11px] text-slate-600">
+                In a Java backend, a Patient object would encapsulate these fields (name, age, condition, room, notes),
+                and the system would use methods like <code>admit()</code>, <code>discharge()</code> or
+                <code>updateNotes()</code> to modify them safely.
+              </p>
+            </div>
+          </div>
+        `;
+      } else if (entity === 'staff') {
+        html = `
+          <div class="space-y-3">
+            <p class="text-xs font-semibold text-sky-700">Staff Profile</p>
+            <div class="bg-slate-50 rounded-lg p-3 space-y-1">
+              <p><span class="font-semibold">Name:</span> ${rec.name}</p>
+              <p><span class="font-semibold">Role:</span> ${rec.role}</p>
+              <p><span class="font-semibold">Department:</span> ${rec.department}</p>
+              <p><span class="font-semibold">Phone:</span> ${rec.phone}</p>
+            </div>
+            <p class="text-[11px] text-slate-600">
+              In the OOP model, Doctor and Nurse could inherit from a base Staff class but implement different
+              behaviours (polymorphism) e.g. <code>attendPatient()</code> vs <code>administerMedication()</code>.
+            </p>
+          </div>
+        `;
+      } else if (entity === 'pharmacy') {
+        html = `
+          <div class="space-y-3">
+            <p class="text-xs font-semibold text-sky-700">Drug Profile</p>
+            <div class="bg-slate-50 rounded-lg p-3 space-y-1">
+              <p><span class="font-semibold">Medicine:</span> ${rec.drugName}</p>
+              <p><span class="font-semibold">Stock:</span> ${rec.stock} units</p>
+              <p><span class="font-semibold">Cost per unit:</span> ${formatCurrency(rec.cost)}</p>
+              <p><span class="font-semibold">Supplier:</span> ${rec.supplier}</p>
+            </div>
+          </div>
+        `;
+      } else if (entity === 'billing') {
+        html = `
+          <div class="space-y-3">
+            <p class="text-xs font-semibold text-sky-700">Billing Case</p>
+            <div class="bg-slate-50 rounded-lg p-3 space-y-1">
+              <p><span class="font-semibold">Patient:</span> ${rec.patientName}</p>
+              <p><span class="font-semibold">Service:</span> ${rec.service}</p>
+              <p><span class="font-semibold">Amount:</span> ${formatCurrency(rec.amount)}</p>
+              <p><span class="font-semibold">Status:</span> ${rec.status}</p>
+            </div>
+            <p class="text-[11px] text-slate-600">
+              In an OOP backend, Billing objects could be processed by a PaymentProcessor abstraction, allowing
+              different payment providers (MPesa, card, insurance) to be injected without changing this code.
+            </p>
+          </div>
+        `;
+      } else if (entity === 'reception') {
+        html = `
+          <div class="space-y-3">
+            <p class="text-xs font-semibold text-sky-700">Appointment</p>
+            <div class="bg-slate-50 rounded-lg p-3 space-y-1">
+              <p><span class="font-semibold">Patient:</span> ${rec.patientName}</p>
+              <p><span class="font-semibold">Doctor:</span> ${rec.doctor}</p>
+              <p><span class="font-semibold">Time:</span> ${new Date(rec.time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+              <p><span class="font-semibold">Status:</span> ${rec.status}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      bodyEl.innerHTML = html;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    }
+
+    function closeDetail() {
+      const overlay = document.getElementById('detail-overlay');
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+    }
+
+    /****************************************************
+     * NAVIGATION HANDLER
+     ****************************************************/
+    function handleNavClick(section) {
+      setActiveNav(section);
+      if (section === 'overview') {
+        renderOverview();
+      } else {
+        renderTableSection(section);
+      }
+    }
+
+    /****************************************************
+     * INITIALISATION
+     ****************************************************/
+    document.addEventListener('DOMContentLoaded', () => {
+      // Seed data
+      seedMockDataWithHistory();
+
+      // Set topbar time
+      const dtEl = document.getElementById('topbar-datetime');
+      const now = new Date();
+      dtEl.textContent = now.toLocaleString('en-KE', {
+        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      // Auth handlers
+      document.getElementById('login-form').addEventListener('submit', handleLogin);
+      document.getElementById('logout-btn').addEventListener('click', handleLogout);
+
+      // Nav
+      document.querySelectorAll('.nav-link').forEach(btn => {
+        btn.addEventListener('click', () => handleNavClick(btn.dataset.section));
+      });
+
+      // Detail panel
+      document.getElementById('detail-close').addEventListener('click', closeDetail);
+      document.getElementById('detail-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'detail-overlay') closeDetail();
+      });
+
+      // Restore auth if possible
+      if (isAuthenticated()) {
+        setAuthState(true);
+      } else {
+        setAuthState(false);
+      }
+    });
+
+    // Expose openDetail for inline onclick
+    window.openDetail = openDetail;
+  </script>
+</body>
+</html>
