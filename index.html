@@ -412,42 +412,152 @@
     }
 
     // Seed big dataset + 18 months of history
-    function seedMockDataWithHistory() {
-      // PATIENTS: grow to ~1,200 total
-      let patients = MOCK_DATA.patients;
-      let lastPatientId = patients.reduce((max, p) => Math.max(max, p.id), 0) || 0;
-      const targetPatients = 1200;
-      const conditions = ['Fever', 'Malaria', 'Check-up', 'Fracture', 'Diabetes', 'Hypertension', 'Asthma', 'Migraine'];
+function seedMockDataWithHistory() {
+  // PATIENTS: grow to ~1,200 total
+  let patients = MOCK_DATA.patients;
+  let lastPatientId = patients.reduce((max, p) => Math.max(max, p.id), 0) || 0;
+  const targetPatientsCount = 1200;                      // renamed
+  const conditions = ['Fever', 'Malaria', 'Check-up', 'Fracture', 'Diabetes', 'Hypertension', 'Asthma', 'Migraine'];
 
-      for (let i = lastPatientId + 1; i <= targetPatients; i++) {
-        const date = randomDateWithinMonths(HISTORY_MONTHS);
-        const condition = conditions[Math.floor(Math.random() * conditions.length)];
+  for (let i = lastPatientId + 1; i <= targetPatientsCount; i++) {
+    const date = randomDateWithinMonths(HISTORY_MONTHS);
+    const condition = conditions[Math.floor(Math.random() * conditions.length)];
 
-        const p = {
-          id: i,
-          name: `Patient #${i}`,
-          age: 10 + Math.floor(Math.random() * 70),
-          condition,
-          room: (100 + (i % 80)) + String.fromCharCode(65 + (i % 3)),
-          notes: `Auto-generated historical record with diagnosis: ${condition}.`,
-          allergies: Math.random() < 0.1 ? 'Penicillin' : 'None reported',
-          nhifNumber: `NHIF-AUTO-${String(i).padStart(4, '0')}`,
-          nextOfKin: `Relative for Patient #${i} – 07${Math.floor(1000000 + Math.random() * 8999999)}`,
-          lastVisit: date.toISOString().slice(0, 10),
-          createdAt: date.toISOString()
-        };
-        patients.push(p);
+    const p = {
+      id: i,
+      name: `Patient #${i}`,
+      age: 10 + Math.floor(Math.random() * 70),
+      condition,
+      room: (100 + (i % 80)) + String.fromCharCode(65 + (i % 3)),
+      notes: `Auto-generated historical record with diagnosis: ${condition}.`,
+      allergies: Math.random() < 0.1 ? 'Penicillin' : 'None reported',
+      nhifNumber: `NHIF-AUTO-${String(i).padStart(4, '0')}`,
+      nextOfKin: `Relative for Patient #${i} – 07${Math.floor(1000000 + Math.random() * 8999999)}`,
+      lastVisit: date.toISOString().slice(0, 10),
+      createdAt: date.toISOString()
+    };
+    patients.push(p);
 
-        MOCK_LOGS.push({
-          id: `log-p-${i}`,
-          timestamp: date.toISOString(),
-          entity: 'patient',
-          action: 'CREATE',
-          actor: 'System',
-          details: `Registered ${p.name} in room ${p.room}`
-        });
-      }
-      MOCK_DATA.patients = patients;
+    MOCK_LOGS.push({
+      id: `log-p-${i}`,
+      timestamp: date.toISOString(),
+      entity: 'patient',
+      action: 'CREATE',
+      actor: 'System',
+      details: `Registered ${p.name} in room ${p.room}`
+    });
+  }
+  MOCK_DATA.patients = patients;
+
+  // PHARMACY: grow to 500+ items
+  let pharmacy = MOCK_DATA.pharmacy;
+  let lastDrugId = pharmacy.reduce((max, d) => Math.max(max, d.id), 0) || 1000;
+  const baseNames = ['Paracetamol', 'Ibuprofen', 'Metformin', 'Ceftriaxone', 'Omeprazole', 'Salbutamol'];
+  const suppliers = ['PharmaCorp', 'GlobalMeds', 'MediSupply', 'HealthPlus'];
+
+  for (let i = pharmacy.length + 1; i <= 500; i++) {
+    const date = randomDateWithinMonths(HISTORY_MONTHS);
+    const nameBase = baseNames[Math.floor(Math.random() * baseNames.length)];
+    const dosage = 100 + 50 * (i % 5);
+    const item = {
+      id: lastDrugId + i,
+      drugName: `${nameBase} (${dosage}mg)`,
+      stock: 100 + Math.floor(Math.random() * 5000),
+      cost: 50 + Math.round(Math.random() * 950),
+      supplier: suppliers[Math.floor(Math.random() * suppliers.length)],
+      createdAt: date.toISOString()
+    };
+    pharmacy.push(item);
+
+    MOCK_LOGS.push({
+      id: `log-ph-${item.id}`,
+      timestamp: date.toISOString(),
+      entity: 'pharmacy',
+      action: 'CREATE',
+      actor: 'System',
+      details: `Added ${item.drugName} from ${item.supplier} (stock ${item.stock})`
+    });
+  }
+  MOCK_DATA.pharmacy = pharmacy;
+
+  // BILLING: monthly volume
+  let billing = MOCK_DATA.billing;
+  let lastBillId = billing.reduce((max, b) => Math.max(max, b.id), 0) || 300;
+  const services = ['Consultation', 'Lab Tests', 'X-Ray', 'Admission', 'Surgery', 'Physiotherapy'];
+
+  const billsPerMonth = 40;
+  const totalPatients = MOCK_DATA.patients.length;        // new name
+
+  for (let m = 0; m < HISTORY_MONTHS; m++) {
+    for (let j = 0; j < billsPerMonth; j++) {
+      const date = randomDateWithinMonths(HISTORY_MONTHS);
+      const patientId = 1 + Math.floor(Math.random() * totalPatients);
+      const service = services[Math.floor(Math.random() * services.length)];
+      const amount = 500 + Math.round(Math.random() * 25000);
+      const status = Math.random() < 0.75 ? 'PAID' : 'UNPAID';
+
+      lastBillId++;
+      const bill = {
+        id: lastBillId,
+        patientId,
+        service,
+        amount,
+        status,
+        createdAt: date.toISOString()
+      };
+      billing.push(bill);
+      MOCK_LOGS.push({
+        id: `log-b-${bill.id}`,
+        timestamp: date.toISOString(),
+        entity: 'billing',
+        action: 'CREATE',
+        actor: 'System',
+        details: `Created ${status} invoice for patient #${patientId} – ${service}`,
+        amount
+      });
+    }
+  }
+  MOCK_DATA.billing = billing;
+
+  // RECEPTION
+  let reception = MOCK_DATA.reception;
+  let lastRecId = reception.reduce((max, r) => Math.max(max, r.id), 0) || 400;
+  const statuses = ['Scheduled', 'Checked-in', 'Completed', 'Canceled'];
+  const doctors = MOCK_DATA.staff.filter(s => s.role === 'Doctor');
+  const appointmentsPerMonth = 50;
+
+  for (let m = 0; m < HISTORY_MONTHS; m++) {
+    for (let j = 0; j < appointmentsPerMonth; j++) {
+      const date = randomDateWithinMonths(HISTORY_MONTHS);
+      const d = doctors[Math.floor(Math.random() * doctors.length)];
+      const patientId = 1 + Math.floor(Math.random() * totalPatients);   // use totalPatients
+      const patientName = `Patient #${patientId}`;
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+      lastRecId++;
+      const rec = {
+        id: lastRecId,
+        patientName,
+        doctor: d.name,
+        time: date.toISOString().slice(0, 16).replace('T', ' '),
+        status,
+        createdAt: date.toISOString()
+      };
+      reception.push(rec);
+      MOCK_LOGS.push({
+        id: `log-r-${rec.id}`,
+        timestamp: date.toISOString(),
+        entity: 'reception',
+        action: 'CREATE',
+        actor: d.name,
+        details: `Appointment for ${patientName} with ${d.name} (${status})`
+      });
+    }
+  }
+  MOCK_DATA.reception = reception;
+
+  MOCK_LOGS.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+}
 
       // PHARMACY: grow to 500+ items
       let pharmacy = MOCK_DATA.pharmacy;
