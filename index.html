@@ -273,6 +273,7 @@
     const DEMO_USER = { username: 'admin', password: 'admin123', displayName: 'System Admin' };
 
     function saveAuth(user) {
+      // ENCAPSULATION: we encapsulate how auth is stored in localStorage
       localStorage.setItem('hms-auth', JSON.stringify({
         username: user.username,
         displayName: user.displayName,
@@ -486,12 +487,12 @@
       const services = ['Consultation', 'Lab Tests', 'X-Ray', 'Admission', 'Surgery', 'Physiotherapy'];
 
       const billsPerMonth = 40;
-      const targetPatients = MOCK_DATA.patients.length;
+      const totalPatientsForBills = MOCK_DATA.patients.length; // renamed to avoid const clash
 
       for (let m = 0; m < HISTORY_MONTHS; m++) {
         for (let j = 0; j < billsPerMonth; j++) {
           const date = randomDateWithinMonths(HISTORY_MONTHS);
-          const patientId = 1 + Math.floor(Math.random() * targetPatients);
+          const patientId = 1 + Math.floor(Math.random() * totalPatientsForBills);
           const service = services[Math.floor(Math.random() * services.length)];
           const amount = 500 + Math.round(Math.random() * 25000);
           const status = Math.random() < 0.75 ? 'PAID' : 'UNPAID';
@@ -530,7 +531,7 @@
         for (let j = 0; j < appointmentsPerMonth; j++) {
           const date = randomDateWithinMonths(HISTORY_MONTHS);
           const d = doctors[Math.floor(Math.random() * doctors.length)];
-          const patientId = 1 + Math.floor(Math.random() * targetPatients);
+          const patientId = 1 + Math.floor(Math.random() * totalPatientsForBills);
           const patientName = `Patient #${patientId}`;
           const status = statuses[Math.floor(Math.random() * statuses.length)];
 
@@ -791,7 +792,7 @@
               <div>
                 <p class="text-xs font-medium text-slate-500 mb-1">Revenue & Outstanding</p>
                 <p class="text-sm font-semibold text-slate-900">
-                  Unpaid: KES ${stats.unpaidAmount.toFixed(0).toLocaleString('en-KE')}
+                  Unpaid: KES ${stats.unpaidAmount.toLocaleString('en-KE', { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <span class="inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[0.65rem] font-medium">
@@ -880,7 +881,7 @@
             ${createBarChart(labels, revenueSeries, 'KES')}
           </div>
         </div>
-      `;
+     `;
 
       container.innerHTML = topRowHtml + secondaryRowHtml + chartsRowHtml;
     }
@@ -892,7 +893,7 @@
       const map = {
         patients: ['ID', 'Name', 'Age', 'Condition', 'Room'],
         staff: ['ID', 'Name', 'Role', 'Department', 'Phone'],
-        pharmacy: ['ID', 'Drug Name', 'Stock', 'Cost (KES)'],
+        pharmacy: ['ID', 'Drug Name', 'Stock', 'Cost (KES)', 'Supplier'],
         billing: ['ID', 'Patient ID', 'Service', 'Amount (KES)', 'Status'],
         reception: ['ID', 'Patient Name', 'Doctor', 'Time', 'Status'],
         doctor: ['ID', 'Name', 'Department', 'Phone'],
@@ -908,7 +909,7 @@
           { name: 'age', label: 'Age', type: 'number', placeholder: 'Age' },
           { name: 'condition', label: 'Condition', type: 'text', placeholder: 'Diagnosis' },
           { name: 'room', label: 'Room', type: 'text', placeholder: 'Room Number' },
-          { name: 'notes', label: 'Notes', type: 'text', placeholder: 'Brief clinical notes' }
+          { name: 'notes', label: 'Notes', type: 'text', placeholder: 'Brief clinical notes (optional)' }
         ],
         staff: [
           { name: 'name', label: 'Name', type: 'text', placeholder: 'Staff Name' },
@@ -946,6 +947,7 @@
       fields.forEach(field => {
         const value = data[field.name] !== undefined ? data[field.name] : '';
         let inputHtml;
+
         if (field.type === 'select') {
           inputHtml = `
             <select
@@ -960,14 +962,15 @@
             </select>
           `;
         } else {
+          // Make "notes" optional by conditionally adding the required attribute
+          const requiredAttr = field.name === 'notes' ? '' : ' required';
           inputHtml = `
             <input
               type="${field.type}"
               name="${field.name}"
               placeholder="${field.placeholder}"
               value="${sanitize(value)}"
-              step="${field.type === 'number' ? '0.01' : ''}"
-              required="${field.name === 'notes' ? '' : 'required'}"
+              step="${field.type === 'number' ? '0.01' : ''}"${requiredAttr}
               class="mt-1 block w-full rounded-lg border border-slate-300 text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           `;
@@ -1308,7 +1311,7 @@
       closeModal();
     }
 
-    // Attach confirm button handler
+    // Attach confirm button handler (for delete)
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('modal-confirm').addEventListener('click', () => {
         if (currentAction.action === 'delete') {
@@ -1379,10 +1382,13 @@
      ****************************************************/
     function createBackendSection() {
       /*
-       * NOTE:
-       *  - Below strings show Java code with comments explaining
-       *    Encapsulation, Inheritance, Abstraction and Polymorphism.
-       *  - These are "documentation-level" snippets for your report.
+       * LANGUAGE: JAVA (BACKEND EXAMPLES)
+       * We are only VIEWING the code here as documentation.
+       * OOP CONCEPTS:
+       *  - Encapsulation (private fields + getters/setters)
+       *  - Inheritance (extends BaseEntity)
+       *  - Abstraction (abstract classes, interfaces, @MappedSuperclass)
+       *  - Polymorphism (method overriding, Spring MVC handler methods)
        */
       const javaCodeMap = {
         'BaseEntity.java (Core – Abstraction + Inheritance)': `
@@ -1802,121 +1808,4 @@ public class HospitalApplication {
     function openTab(evt, tabId) {
       const contents = document.getElementsByClassName('tab-content');
       for (let i = 0; i < contents.length; i++) {
-        contents[i].classList.remove('active');
-      }
-      const buttons = document.getElementById('backend-tabs').getElementsByTagName('button');
-      for (let i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('text-sky-600', 'border-sky-600');
-        buttons[i].classList.add('text-slate-500', 'border-transparent');
-      }
-      document.getElementById(tabId).classList.add('active');
-      evt.currentTarget.classList.add('text-sky-600', 'border-sky-600');
-    }
-
-    /****************************************************
-     * SECTION NAVIGATION
-     ****************************************************/
-    let currentSection = 'overview';
-
-    async function showSection(entity) {
-      if (!isAuthenticated()) {
-        return;
-      }
-      currentSection = entity;
-      const container = document.getElementById('content-container');
-
-      // Update sidebar active state
-      document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('bg-slate-800', 'text-sky-300');
-        link.classList.add('text-slate-100');
-      });
-      const activeLink = document.querySelector(`.nav-link[onclick*="showSection('${entity}')"]`);
-      if (activeLink) {
-        activeLink.classList.add('bg-slate-800', 'text-sky-300');
-        activeLink.classList.remove('text-slate-100');
-      }
-
-      if (entity === 'overview') {
-        container.innerHTML = `
-          <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-lg font-semibold text-slate-900 mb-1">Quick Snapshot</h2>
-            <p class="text-[0.7rem] text-slate-500">
-              Use this as your "at a glance" page before drilling down into Patients, Staff, Pharmacy, Billing or Reception.
-            </p>
-          </section>
-        `;
-        return;
-      }
-
-      if (entity === 'backend') {
-        container.innerHTML = createBackendSection();
-        return;
-      }
-
-      if (entity === 'logs') {
-        container.innerHTML = createLogsSection();
-        return;
-      }
-
-      container.innerHTML = `
-        <div class="flex items-center justify-center p-10">
-          <div class="loader w-7 h-7 border-4 rounded-full mr-3 border-slate-200"></div>
-          <span class="text-sm text-slate-600">Loading ${entity}...</span>
-        </div>
-      `;
-
-      try {
-        const data = await fetchData(entity);
-        const titleMap = {
-          patients: 'Patients',
-          staff: 'Staff (All Roles)',
-          pharmacy: 'Pharmacy Inventory',
-          billing: 'Billing & Invoices',
-          reception: 'Reception & Appointments',
-          doctor: 'Staff (Doctors Only)',
-          nurse: 'Staff (Nurses Only)'
-        };
-        const title = titleMap[entity] || entity;
-        container.innerHTML = createCrudSection(entity, title, data);
-      } catch (err) {
-        container.innerHTML = `
-          <div class="p-6 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">
-            Error loading data: ${err.message}
-          </div>
-        `;
-      }
-    }
-
-    /****************************************************
-     * INITIALISATION
-     ****************************************************/
-    document.addEventListener('DOMContentLoaded', () => {
-      // Seed big dataset + 18 months of history
-      seedMockDataWithHistory();
-
-      // Login handlers
-      document.getElementById('login-form').addEventListener('submit', handleLogin);
-      document.getElementById('logout-btn').addEventListener('click', handleLogout);
-
-      // Sidebar mobile toggle
-      document.getElementById('menu-toggle').addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('-translate-x-full');
-      });
-
-      document.querySelector('main').addEventListener('click', () => {
-        if (window.innerWidth < 1024 && !document.getElementById('sidebar').classList.contains('-translate-x-full')) {
-          document.getElementById('sidebar').classList.add('-translate-x-full');
-        }
-      });
-
-      // Restore auth if available
-      if (isAuthenticated()) {
-        setAuthState(true);
-      } else {
-        setAuthState(false);
-      }
-    });
-  </script>
-</body>
-</html>
-
+        contents[i].classList.remove('active
